@@ -316,6 +316,7 @@ struct SsRequestCommand {
     int32_t classType = 0;
     int32_t action = 0;
     int32_t flag = SS_FROM_MMI_CODE; // 0: command come from dialer; 1: command come from JS api which called by setting
+    bool isIncludeCallForwardingNumber = false;
 };
 
 enum PostDialCallState {

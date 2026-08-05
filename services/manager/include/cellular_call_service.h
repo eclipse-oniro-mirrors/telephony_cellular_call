@@ -322,7 +322,7 @@ public:
      * @param CallTransferType
      * @return Returns TELEPHONY_SUCCESS on success, others on failure.
      */
-    int32_t GetCallTransferInfo(int32_t slotId, CallTransferType type) override;
+    int32_t GetCallTransferInfo(int32_t slotId, CallTransferType type, bool isIncludeCallForwardingNumber) override;
 
     /**
      * Set Call Waiting

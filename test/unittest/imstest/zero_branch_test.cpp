@@ -411,16 +411,16 @@ HWTEST_F(ZeroBranchTest, Telephony_CellularCallSupplement_003, Function | Medium
     callSup.EventSetCallWaiting(0, message, 0, 1);
     callSup.EventSetCallWaiting(0, message, 1, 1);
     CallForwardQueryInfoList cFQueryList;
-    callSup.EventGetCallTransferInfo(cFQueryList, message, 0);
+    callSup.EventGetCallTransferInfo(cFQueryList, message, 0, true);
     CallForwardQueryResult queryResult;
-    callSup.BuildCallForwardQueryInfo(queryResult, message, 0);
-    callSup.BuildCallForwardQueryInfo(queryResult, message, 1);
+    callSup.BuildCallForwardQueryInfo(queryResult, message, 0, true);
+    callSup.BuildCallForwardQueryInfo(queryResult, message, 1, true);
     queryResult.classx = 1;
-    callSup.BuildCallForwardQueryInfo(queryResult, message, 0);
+    callSup.BuildCallForwardQueryInfo(queryResult, message, 0, true);
     queryResult.status = 1;
-    callSup.BuildCallForwardQueryInfo(queryResult, message, 0);
+    callSup.BuildCallForwardQueryInfo(queryResult, message, 0, true);
     queryResult.reason = 2;
-    callSup.BuildCallForwardQueryInfo(queryResult, message, 0);
+    callSup.BuildCallForwardQueryInfo(queryResult, message, 0, true);
     std::string targetNumber = "1234567";
     callSup.EventSetCallTransferInfo(0, message, 0, 1, targetNumber);
     callSup.EventSetCallTransferInfo(0, message, 1, 1, targetNumber);
@@ -432,8 +432,8 @@ HWTEST_F(ZeroBranchTest, Telephony_CellularCallSupplement_003, Function | Medium
     callSup.EventUssdNotify(ussdNoticeInfo, SIM1_SLOTID);
     RadioResponseInfo response;
     callSup.EventCloseUnFinishedUssd(response);
-    callSup.GetCallTransferInfo(SIM1_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL);
-    ASSERT_EQ(callSup.GetCallTransferInfo(SIM2_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL),
+    callSup.GetCallTransferInfo(SIM1_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, true);
+    ASSERT_EQ(callSup.GetCallTransferInfo(SIM2_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, true),
         TELEPHONY_SUCCESS);
 }
 
@@ -725,7 +725,7 @@ HWTEST_F(ZeroBranchTest, Telephony_CellularCallSupplement_009, Function | Medium
     ASSERT_EQ(callSup.SetCallTransferInfoByIms(SIM1_SLOTID, cfInfo, command), TELEPHONY_SUCCESS);
 #endif
     ASSERT_EQ(callSup.SetCallTransferInfo(SIM1_SLOTID, cfInfo), TELEPHONY_ERR_ARGUMENT_INVALID);
-    ASSERT_NE(callSup.GetCallTransferInfo(SIM1_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL),
+    ASSERT_NE(callSup.GetCallTransferInfo(SIM1_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, true),
         TELEPHONY_SUCCESS);
     bool activate = true;
     ASSERT_EQ(callSup.SetCallWaiting(SIM1_SLOTID, activate), TELEPHONY_SUCCESS);

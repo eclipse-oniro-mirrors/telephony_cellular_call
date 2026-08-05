@@ -648,26 +648,26 @@ void CellularCallSupplement::EventSetCallWaiting(int32_t result,
     }
 }
 
-void CellularCallSupplement::EventGetCallTransferInfo(
-    const CallForwardQueryInfoList &cFQueryList, const std::string &message, int32_t flag)
+void CellularCallSupplement::EventGetCallTransferInfo(const CallForwardQueryInfoList &cFQueryList,
+    const std::string &message, int32_t flag, bool isIncludeCallForwardingNumber)
 {
     if (cFQueryList.result.result != TELEPHONY_SUCCESS && cFQueryList.callSize == 0) {
         CallForwardQueryResult failResult;
         failResult.result = cFQueryList.result.result;
         failResult.reason = cFQueryList.result.reason;
-        BuildCallForwardQueryInfo(failResult, message, flag);
+        BuildCallForwardQueryInfo(failResult, message, flag, isIncludeCallForwardingNumber);
     }
     for (auto queryResult : cFQueryList.calls) {
         TELEPHONY_LOGI("data: status %{public}d, classx %{public}d, reason %{public}d", queryResult.status,
             queryResult.classx, queryResult.reason);
         if (queryResult.classx > 0 && (static_cast<uint32_t>(queryResult.classx) & ServiceClassType::VOICE) != 0) {
-            BuildCallForwardQueryInfo(queryResult, message, flag);
+            BuildCallForwardQueryInfo(queryResult, message, flag, isIncludeCallForwardingNumber);
         }
     }
 }
 
-void CellularCallSupplement::BuildCallForwardQueryInfo(
-    const CallForwardQueryResult &queryResult, const std::string &message, int32_t flag)
+void CellularCallSupplement::BuildCallForwardQueryInfo(const CallForwardQueryResult &queryResult,
+    const std::string &message, int32_t flag, bool isIncludeCallForwardingNumber)
 {
     // 3GPP TS 27.007 V3.9.0 (2001-06) 7.11	Call forwarding number and conditions +CCFC
     CallTransferResponse response;
@@ -676,7 +676,8 @@ void CellularCallSupplement::BuildCallForwardQueryInfo(
         return;
     }
     // <number>: string type phone number of forwarding address in format specified by <type>
-    if (strcpy_s(response.number, sizeof(response.number), queryResult.number.c_str()) != EOK) {
+    if (strcpy_s(response.number, sizeof(response.number),
+        isIncludeCallForwardingNumber ? queryResult.number.c_str() : "") != EOK) {
         TELEPHONY_LOGE(" strcpy_s fail.");
         return;
     }
@@ -944,7 +945,8 @@ int32_t CellularCallSupplement::CanSetCallTransferTime(int32_t slotId, bool &res
     return ret;
 }
 
-int32_t CellularCallSupplement::GetCallTransferInfo(int32_t slotId, CallTransferType type)
+int32_t CellularCallSupplement::GetCallTransferInfo(int32_t slotId, CallTransferType type,
+    bool isIncludeCallForwardingNumber)
 {
     auto handler = DelayedSingleton<CellularCallService>::GetInstance()->GetHandler(slotId);
     if (handler == nullptr) {
@@ -955,6 +957,7 @@ int32_t CellularCallSupplement::GetCallTransferInfo(int32_t slotId, CallTransfer
     auto utCommand = std::make_shared<SsRequestCommand>();
     utCommand->flag = SS_FROM_SETTING_MENU;
     utCommand->cfReason = static_cast<int32_t>(type);
+    utCommand->isIncludeCallForwardingNumber = isIncludeCallForwardingNumber;
     int32_t index;
     if (NeedUseImsToHandle(slotId)) {
         handler->RequestSsRequestCommandIndex(index);

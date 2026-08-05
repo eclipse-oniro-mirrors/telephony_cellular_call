@@ -817,8 +817,8 @@ int32_t CellularCallStub::OnGetCallTransferInner(MessageParcel &data, MessagePar
     }
     int32_t slotId = data.ReadInt32();
     auto type = static_cast<CallTransferType>(data.ReadInt32());
-
-    reply.WriteInt32(GetCallTransferInfo(slotId, type));
+    bool isIncludeCallForwardingNumber = data.ReadBool();
+    reply.WriteInt32(GetCallTransferInfo(slotId, type, isIncludeCallForwardingNumber));
     return TELEPHONY_SUCCESS;
 }
 

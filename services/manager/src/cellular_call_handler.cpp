@@ -1739,9 +1739,11 @@ void CellularCallHandler::GetCallTransferResponse(const AppExecFwk::InnerEvent::
         return;
     }
     SsRequestCommand ss;
+    bool isIncludeCallForwardingNumber = true;
     int32_t ret = GetSsRequestCommand(cFQueryList->result.index, ss);
     if (ret == TELEPHONY_SUCCESS) {
         cFQueryList->result.reason = ss.cfReason;
+        isIncludeCallForwardingNumber = ss.isIncludeCallForwardingNumber;
     }
     int32_t flag = SS_FROM_MMI_CODE;
     ret = ConfirmAndRemoveSsRequestCommand(cFQueryList->result.index, flag);
@@ -1749,7 +1751,8 @@ void CellularCallHandler::GetCallTransferResponse(const AppExecFwk::InnerEvent::
         return;
     }
     CellularCallSupplement supplement;
-    supplement.EventGetCallTransferInfo(*cFQueryList, cFQueryList->result.message, flag);
+    supplement.EventGetCallTransferInfo(*cFQueryList, cFQueryList->result.message, flag,
+        isIncludeCallForwardingNumber);
 }
 
 void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEvent::Pointer &event)
