@@ -1125,7 +1125,8 @@ int32_t CellularCallService::CanSetCallTransferTime(int32_t slotId, bool &result
     return cellularCallSupplement.CanSetCallTransferTime(slotId, result);
 }
 
-int32_t CellularCallService::GetCallTransferInfo(int32_t slotId, CallTransferType type, bool isIncludeCallForwardingNumber)
+int32_t CellularCallService::GetCallTransferInfo(int32_t slotId, CallTransferType type,
+    bool isIncludeCallForwardingNumber)
 {
     TELEPHONY_LOGD("CellularCallService::GetCallTransferInfo");
     if (!IsValidSlotId(slotId)) {
