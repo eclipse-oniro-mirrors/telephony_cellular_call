@@ -402,11 +402,6 @@ void CellularCallHandler::OnReceiveEvent(const EventFwk::CommonEventData &data)
         }
         this->SendEvent(NETWORK_STATE_CHANGED, 0, Priority::HIGH);
     }
-    // if (action == EventFwk::CommonEventSupport::COMMON_EVENT_USER_SWITCHED) {
-    //     // User switch covers privacy space switch, query call transfer status for the current slot.
-    //     TELEPHONY_LOGI("[slot%{public}d] hjh, user switched, schedule call transfer status query", slotId_);
-    //     ScheduleQueryCallTransferStatus();
-    // }
 #ifdef BASE_POWER_IMPROVEMENT_FEATURE
     if (action == ENTER_STR_TELEPHONY_NOTIFY) {
         ModuleServiceUtils moduleServiceUtils;
@@ -1044,7 +1039,7 @@ void CellularCallHandler::SimStateChangeReport(const AppExecFwk::InnerEvent::Poi
     CellularCallConfig config;
     config.HandleSimStateChanged(slotId_);
     bool hasSimCard = false;
-    DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);  
+    DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);
     if (!hasSimCard) {
         callTransferStatusCache_ = CallTransferStatusCache::NOT_QUERIED;
         ReportCallTransferStatus(slotId_, false);
