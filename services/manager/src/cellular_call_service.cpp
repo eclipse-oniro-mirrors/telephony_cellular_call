@@ -161,6 +161,7 @@ void CellularCallService::SubscribeToEvents(const std::vector<std::string>& even
         TELEPHONY_LOGI("setSlotId:%{public}d", it);
         handler->SetSlotId(it);
         handler->RegisterImsCallCallbackHandler();
+        handler->RegisterImsRegInfoCallbackHandler();
         {
             std::unique_lock<std::mutex> lock(handlerMapMutex_);
             handlerMap_.insert(std::make_pair(it, handler));
@@ -1109,7 +1110,8 @@ int32_t CellularCallService::SetCallTransferInfo(int32_t slotId, const CallTrans
     if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_DISABLE) {
         DelayedSingleton<CellularCallHiSysEvent>::GetInstance()->SetCallForwardingInfo(
             slotId, false, cTInfo.transferNum);
-    } else if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_ENABLE) {
+    } else if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_ENABLE ||
+        cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_REGISTRATION) {
         DelayedSingleton<CellularCallHiSysEvent>::GetInstance()->SetCallForwardingInfo(
             slotId, true, cTInfo.transferNum);
     }

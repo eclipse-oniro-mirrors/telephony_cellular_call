@@ -30,6 +30,7 @@
 #include "cs_control.h"
 #include "ims_call_types.h"
 #include "ims_control.h"
+#include "ims_reg_info_callback_stub.h"
 #ifdef CELLULAR_CALL_SATELLITE
 #include "satellite_control.h"
 #endif // CELLULAR_CALL_SATELLITE
@@ -41,6 +42,23 @@ namespace Telephony {
 
 constexpr const char *KEY_CONST_TELEPHONY_IS_USE_CLOUD_IMS_NV = "const.telephony.is_use_cloud_ims_nv";
 constexpr const char *KEY_PERSIST_TELEPHONY_VOLTE_CAP_IN_CHIP = "persist.telephony.volte_cap_in_chip";
+class CellularCallHandler;
+class CellularCallImsRegInfoCallback : public ImsRegInfoCallbackStub {
+public:
+    explicit CellularCallImsRegInfoCallback(const std::shared_ptr<AppExecFwk::EventHandler> &handler);
+    int32_t OnImsRegInfoChanged(int32_t slotId, ImsServiceType imsSrvType, const ImsRegInfo &info) override;
+
+private:
+    std::shared_ptr<AppExecFwk::EventHandler> handler_;
+};
+
+// Cached call transfer status. When the cache is invalid, querying the network.
+enum class CallTransferStatusCache : int32_t {
+    NOT_QUERIED = -1,
+    DISABLED = 0,
+    ENABLED = 1,
+};
+
 class CellularCallHandler : public TelEventHandler, public EventFwk::CommonEventSubscriber {
 public:
     /**
@@ -281,6 +299,11 @@ private:
     void ReportSatelliteCallsData(const SatelliteCurrentCallList &callInfoList);
 #endif // CELLULAR_CALL_SATELLITE
     void HandleOperatorConfigChanged(const AppExecFwk::InnerEvent::Pointer &event);
+
+    void ScheduleQueryCallTransferStatus();
+    void HandleCallTransferQueryResult(int32_t slotId, const CallForwardQueryInfoList &cFQueryList);
+    void ReportCallTransferStatus(int32_t slotId, bool enabled);
+    void QueryCallTransferStatus();
     void UpdateRsrvccStateReport(const AppExecFwk::InnerEvent::Pointer &event);
     void ProcessRedundantCode(CallInfoList &callInfoList);
     void ProcessCsPhoneNumber(CallInfoList &list);
@@ -318,6 +341,10 @@ private:
 private:
     int32_t slotId_ = DEFAULT_SIM_SLOT_ID;
     int64_t lastCallsDataFlag_ = 0L;
+    int32_t callTransferQueryRetryCount_ = 0;
+    CallTransferStatusCache callTransferStatusCache_ = CallTransferStatusCache::NOT_QUERIED;
+    sptr<CellularCallImsRegInfoCallback> imsRegInfoCallback_ = nullptr;
+    int32_t imsRegCallbackRetryCount_ = 0;
     using RequestFuncType = std::function<void(const AppExecFwk::InnerEvent::Pointer &event)>;
     std::map<uint32_t, RequestFuncType> requestFuncMap_;
     std::shared_ptr<CellularCallRegister> registerInstance_ = DelayedSingleton<CellularCallRegister>::GetInstance();

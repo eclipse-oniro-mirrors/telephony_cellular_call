@@ -32,6 +32,8 @@
 #endif // CELLULAR_CALL_SATELLITE
 #include "securec.h"
 #include "call_manager_info.h"
+#include "core_service_client.h"
+#include "module_service_utils.h"
 #include "telephony_types.h"
 
 namespace OHOS {
@@ -46,7 +48,14 @@ const uint32_t OPERATOR_CONFIG_CHANGED_ID = 10004;
 const uint32_t GET_SATELLITE_CALL_DATA_ID = 10005;
 #endif // CELLULAR_CALL_SATELLITE
 const uint32_t NETWORK_STATE_CHANGED = 10006;
+const uint32_t QUERY_CALL_TRANSFER_STATUS_ID = 10007;
+const uint32_t REGISTER_IMS_REG_CALLBACK_RETRY_ID = 10008;
+const uint32_t TRIGGER_QUERY_CALL_TRANSFER_STATUS_ID = 10009;
 const int64_t DELAY_TIME = 100;
+const int64_t IMS_REG_CALLBACK_RETRY_DELAY_TIME = 2000;
+constexpr int32_t MAX_IMS_REG_CALLBACK_RETRY_COUNT = 30;
+const int64_t QUERY_CALL_TRANSFER_DELAY_TIME = 5000;
+constexpr int32_t MAX_QUERY_CALL_TRANSFER_RETRY_COUNT = 3;
 const int32_t MAX_REQUEST_COUNT = 50;
 // message was null, mean report the default message to user which have been define at CellularCallSupplement
 const std::string DEFAULT_NULL_MESSAGE = "";
@@ -59,6 +68,26 @@ bool CellularCallHandler::isNvCfgFinish_ = false;
 #endif
 constexpr int8_t IMS_CLOUD_FAIL = 23;
 constexpr int32_t MAX_ACTIVE_CALL_NUM = 2;
+
+CellularCallImsRegInfoCallback::CellularCallImsRegInfoCallback(const std::shared_ptr<AppExecFwk::EventHandler> &handler)
+    : handler_(handler)
+{
+}
+
+int32_t CellularCallImsRegInfoCallback::OnImsRegInfoChanged(
+    int32_t slotId, ImsServiceType imsSrvType, const ImsRegInfo &info)
+{
+    if (imsSrvType != ImsServiceType::TYPE_UT || info.imsRegState != ImsRegState::IMS_REGISTERED) {
+        return TELEPHONY_SUCCESS;
+    }
+    if (handler_ == nullptr) {
+        TELEPHONY_LOGE("[slot%{public}d] CellularCallImsRegInfoCallback handler is null", slotId);
+        return TELEPHONY_ERR_LOCAL_PTR_NULL;
+    }
+    TELEPHONY_LOGE("[slot%{public}d] hjh, OnImsRegInfoChanged.", slotId);
+    return TelEventHandler::SendTelEvent(handler_, TRIGGER_QUERY_CALL_TRANSFER_STATUS_ID, 0,
+        CellularCallHandler::Priority::HIGH);
+}
 
 CellularCallHandler::CellularCallHandler(const EventFwk::CommonEventSubscribeInfo &subscriberInfo)
     : TelEventHandler("CellularCallHandler"), CommonEventSubscriber(subscriberInfo)
@@ -270,6 +299,12 @@ void CellularCallHandler::InitAdditionalFuncMap()
         [this](const AppExecFwk::InnerEvent::Pointer &event) { GetMMIResponse(event); };
     requestFuncMap_[DtmfHandlerId::EVENT_EXECUTE_POST_DIAL] =
         [this](const AppExecFwk::InnerEvent::Pointer &event) { ExecutePostDial(event); };
+    requestFuncMap_[REGISTER_IMS_REG_CALLBACK_RETRY_ID] =
+        [this](const AppExecFwk::InnerEvent::Pointer &event) { RegisterImsRegInfoCallbackHandler(); };
+    requestFuncMap_[TRIGGER_QUERY_CALL_TRANSFER_STATUS_ID] =
+        [this](const AppExecFwk::InnerEvent::Pointer &event) { ScheduleQueryCallTransferStatus(); };
+    requestFuncMap_[QUERY_CALL_TRANSFER_STATUS_ID] =
+        [this](const AppExecFwk::InnerEvent::Pointer &event) { QueryCallTransferStatus(); };
 }
 
 #ifdef SUPPORT_RTT_CALL
@@ -293,6 +328,24 @@ void CellularCallHandler::RegisterImsCallCallbackHandler()
     if (imsCallClient != nullptr) {
         imsCallClient->RegisterImsCallCallbackHandler(slotId_, shared_from_this());
     }
+}
+
+void CellularCallHandler::RegisterImsRegInfoCallbackHandler()
+{
+    if (imsRegInfoCallback_ == nullptr) {
+        imsRegInfoCallback_ = new CellularCallImsRegInfoCallback(shared_from_this());
+    }
+    int32_t ret = DelayedRefSingleton<CoreServiceClient>::GetInstance().RegisterImsRegInfoCallback(
+        slotId_, ImsServiceType::TYPE_UT, imsRegInfoCallback_);
+    if (ret != TELEPHONY_SUCCESS) {
+        TELEPHONY_LOGE("[slot%{public}d] RegisterImsRegInfoCallback failed, errcode:%{public}d", slotId_, ret);
+        if (imsRegCallbackRetryCount_ < MAX_IMS_REG_CALLBACK_RETRY_COUNT) {
+            imsRegCallbackRetryCount_++;
+            SendEvent(REGISTER_IMS_REG_CALLBACK_RETRY_ID, IMS_REG_CALLBACK_RETRY_DELAY_TIME);
+        }
+        return;
+    }
+    TELEPHONY_LOGI("[slot%{public}d] RegisterImsRegInfoCallback success", slotId_);
 }
 
 #ifdef CELLULAR_CALL_SATELLITE
@@ -349,6 +402,11 @@ void CellularCallHandler::OnReceiveEvent(const EventFwk::CommonEventData &data)
         }
         this->SendEvent(NETWORK_STATE_CHANGED, 0, Priority::HIGH);
     }
+    // if (action == EventFwk::CommonEventSupport::COMMON_EVENT_USER_SWITCHED) {
+    //     // User switch covers privacy space switch, query call transfer status for the current slot.
+    //     TELEPHONY_LOGI("[slot%{public}d] hjh, user switched, schedule call transfer status query", slotId_);
+    //     ScheduleQueryCallTransferStatus();
+    // }
 #ifdef BASE_POWER_IMPROVEMENT_FEATURE
     if (action == ENTER_STR_TELEPHONY_NOTIFY) {
         ModuleServiceUtils moduleServiceUtils;
@@ -985,6 +1043,12 @@ void CellularCallHandler::SimStateChangeReport(const AppExecFwk::InnerEvent::Poi
 {
     CellularCallConfig config;
     config.HandleSimStateChanged(slotId_);
+    bool hasSimCard = false;
+    DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);  
+    if (!hasSimCard) {
+        callTransferStatusCache_ = CallTransferStatusCache::NOT_QUERIED;
+        ReportCallTransferStatus(slotId_, false);
+    }
 }
 
 void CellularCallHandler::FactoryReset(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1003,6 +1067,69 @@ void CellularCallHandler::SimAccountLoadedReport(const AppExecFwk::InnerEvent::P
 {
     CellularCallConfig config;
     config.HandleSimAccountLoaded(slotId_);
+}
+
+void CellularCallHandler::ScheduleQueryCallTransferStatus()
+{
+    TELEPHONY_LOGI("[slot%{public}d] ScheduleQueryCallTransferStatus", slotId_);
+    callTransferQueryRetryCount_ = 0;
+    RemoveEvent(QUERY_CALL_TRANSFER_STATUS_ID);
+    SendEvent(QUERY_CALL_TRANSFER_STATUS_ID, QUERY_CALL_TRANSFER_DELAY_TIME);
+}
+
+void CellularCallHandler::QueryCallTransferStatus()
+{
+    if (callTransferStatusCache_ != CallTransferStatusCache::NOT_QUERIED) {
+        ReportCallTransferStatus(slotId_, callTransferStatusCache_ == CallTransferStatusCache::ENABLED);
+        return;
+    }
+    ModuleServiceUtils moduleServiceUtils;
+    if (!moduleServiceUtils.GetImsRegistrationState(slotId_)) {
+        // IMS state is unstable at this moment, discard this query.
+        TELEPHONY_LOGI("[slot%{public}d]IMS not registered, discard call transfer status query", slotId_);
+        return;
+    }
+    CellularCallSupplement supplement;
+    int32_t result = supplement.GetCallTransferInfo(slotId_, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, false);
+    if (result != TELEPHONY_SUCCESS &&
+        callTransferQueryRetryCount_ < MAX_QUERY_CALL_TRANSFER_RETRY_COUNT) {
+        callTransferQueryRetryCount_++;
+        RemoveEvent(QUERY_CALL_TRANSFER_STATUS_ID);
+        SendEvent(QUERY_CALL_TRANSFER_STATUS_ID, QUERY_CALL_TRANSFER_DELAY_TIME);
+        TELEPHONY_LOGI("[slot%{public}d] retry call transfer status query, retryCount:%{public}d",
+            slotId_, callTransferQueryRetryCount_);
+    }
+}
+
+void CellularCallHandler::HandleCallTransferQueryResult(
+    int32_t slotId, const CallForwardQueryInfoList &cFQueryList)
+{
+    if (cFQueryList.result.result != TELEPHONY_SUCCESS && cFQueryList.callSize == 0) {
+        TELEPHONY_LOGE("[slot%{public}d] query call transfer failed, errcode:%{public}d",
+            slotId, cFQueryList.result.result);
+        RemoveEvent(QUERY_CALL_TRANSFER_STATUS_ID);
+        SendEvent(QUERY_CALL_TRANSFER_STATUS_ID, QUERY_CALL_TRANSFER_DELAY_TIME);
+        return;
+    }
+    bool enabled = false;
+    for (const auto &call : cFQueryList.calls) {
+        if (call.status == 1) {
+            enabled = true;
+            break;
+        }
+    }
+    callTransferStatusCache_ = enabled ? CallTransferStatusCache::ENABLED : CallTransferStatusCache::DISABLED;
+    ReportCallTransferStatus(slotId, enabled);
+}
+
+void CellularCallHandler::ReportCallTransferStatus(int32_t slotId, bool enabled)
+{
+    if (registerInstance_ == nullptr) {
+        TELEPHONY_LOGE("[slot%{public}d] registerInstance_ is null", slotId);
+        return;
+    }
+    registerInstance_->ReportCallTransferStatus(slotId, enabled);
+    TELEPHONY_LOGI("[slot%{public}d] report call transfer status enabled:%{public}d", slotId, enabled);
 }
 
 void CellularCallHandler::ResidentNetworkChangeReport(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1795,6 +1922,10 @@ void CellularCallHandler::GetCallTransferResponse(const AppExecFwk::InnerEvent::
     }
     CellularCallSupplement supplement;
     supplement.EventGetCallTransferInfo(*cFQueryList, cFQueryList->result.message, flag);
+    
+    if (cFQueryList->result.reason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_UNCONDITIONAL)) {
+        HandleCallTransferQueryResult(slotId_, *cFQueryList);
+    }
 }
 
 void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1804,6 +1935,8 @@ void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEve
         TELEPHONY_LOGE("[slot%{public}d] result is null", slotId_);
         return;
     }
+    SsRequestCommand ss;
+    int32_t getSsRet = GetSsRequestCommand(result->index, ss);
     int32_t flag = SS_FROM_MMI_CODE;
     int32_t action = INVALID_INDEX;
     int32_t ret = ConfirmAndRemoveSsRequestCommand(result->index, flag, action);
@@ -1820,6 +1953,13 @@ void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEve
     callHiSysEvent->GetCallForwardingInfo(info);
     if (result->result == TELEPHONY_SUCCESS) {
         CoreManagerInner::GetInstance().SetVoiceCallForwarding(info.slotId, info.enable, info.number);
+        // Report the status when the unconditional call transfer setting is updated successfully.
+        if (getSsRet == TELEPHONY_SUCCESS &&
+            ss.cfReason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_UNCONDITIONAL)) {
+            callTransferStatusCache_ =
+                info.enable ? CallTransferStatusCache::ENABLED : CallTransferStatusCache::DISABLED;
+            ReportCallTransferStatus(info.slotId, info.enable);
+        }
     } else {
         result->result = TELEPHONY_ERR_RIL_CMD_FAIL;
     }
