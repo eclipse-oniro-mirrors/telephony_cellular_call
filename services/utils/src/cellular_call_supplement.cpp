@@ -944,7 +944,8 @@ int32_t CellularCallSupplement::CanSetCallTransferTime(int32_t slotId, bool &res
     return ret;
 }
 
-int32_t CellularCallSupplement::GetCallTransferInfo(int32_t slotId, CallTransferType type)
+int32_t CellularCallSupplement::GetCallTransferInfo(int32_t slotId, CallTransferType type,
+    bool isBackgroundQuery)
 {
     auto handler = DelayedSingleton<CellularCallService>::GetInstance()->GetHandler(slotId);
     if (handler == nullptr) {
@@ -958,7 +959,8 @@ int32_t CellularCallSupplement::GetCallTransferInfo(int32_t slotId, CallTransfer
     int32_t index;
     if (NeedUseImsToHandle(slotId)) {
         handler->RequestSsRequestCommandIndex(index);
-        result = supplementRequestIms_.GetCallTransferRequest(slotId, static_cast<int32_t>(type), index);
+        result = supplementRequestIms_.GetCallTransferRequest(slotId, static_cast<int32_t>(type), index,
+            isBackgroundQuery);
         if (result == TELEPHONY_SUCCESS) {
             handler->SaveSsRequestCommand(utCommand, index);
         }

@@ -815,7 +815,7 @@ int32_t ImsCallProxy::CanSetCallTransferTime(int32_t slotId, bool &result)
     return TELEPHONY_ERR_IPC_CONNECT_STUB_FAIL;
 }
 
-int32_t ImsCallProxy::GetCallTransfer(int32_t slotId, int32_t reason, int32_t index)
+int32_t ImsCallProxy::GetCallTransfer(int32_t slotId, int32_t reason, int32_t index, bool isBackgroundQuery)
 {
     MessageParcel in;
     int32_t ret = WriteCommonInfo(slotId, __FUNCTION__, in);
@@ -828,6 +828,10 @@ int32_t ImsCallProxy::GetCallTransfer(int32_t slotId, int32_t reason, int32_t in
     }
     if (!in.WriteInt32(index)) {
         TELEPHONY_LOGE("[slot%{public}d]Write index fail!", slotId);
+        return TELEPHONY_ERR_WRITE_DATA_FAIL;
+    }
+    if (!in.WriteBool(isBackgroundQuery)) {
+        TELEPHONY_LOGE("[slot%{public}d]Write isBackgroundQuery fail!", slotId);
         return TELEPHONY_ERR_WRITE_DATA_FAIL;
     }
     return SendRequest(slotId, in, static_cast<int32_t>(ImsCallInterfaceCode::IMS_GET_CALL_TRANSFER));

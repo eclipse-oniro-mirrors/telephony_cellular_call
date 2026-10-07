@@ -16,6 +16,8 @@
 #ifndef CELLULAR_CALL_HANDLER_H
 #define CELLULAR_CALL_HANDLER_H
 
+#include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <regex>
@@ -52,11 +54,39 @@ private:
     std::shared_ptr<AppExecFwk::EventHandler> handler_;
 };
 
-// Cached call transfer status. When the cache is invalid, querying the network.
-enum class CallTransferStatusCache : int32_t {
-    NOT_QUERIED = -1,
-    DISABLED = 0,
-    ENABLED = 1,
+/**
+ * Serializes the call transfer status query tasks triggered by all handlers. Concurrent queries
+ * of multiple slots may fail and cause CS domain fallback, so only one query task is allowed to
+ * be executed at the same time.
+ */
+class CallTransferQueryQueueManager {
+public:
+    static CallTransferQueryQueueManager &GetInstance();
+
+    /**
+     * Register the handler which executes the call transfer status query task of the slot.
+     */
+    void RegisterHandler(int32_t slotId, const std::shared_ptr<CellularCallHandler> &handler);
+
+    /**
+     * Insert the query task of the slot into the queue. If the slot is already in the queue,
+     * do not insert it again. If no other task is being executed, dispatch the task immediately.
+     */
+    void EnqueueQuery(int32_t slotId);
+
+    /**
+     * Notify that the query task of the slot is finished and dispatch the next task. It also
+     * removes the pending task of the slot when the query result is obtained by another request.
+     */
+    void FinishQuery(int32_t slotId);
+
+private:
+    void ExecuteNextQuery();
+
+    ffrt::mutex mutex_;
+    std::deque<int32_t> queryQueue_;
+    bool isQueryRunning_ = false;
+    std::map<int32_t, std::weak_ptr<CellularCallHandler>> handlerMap_;
 };
 
 class CellularCallHandler : public TelEventHandler, public EventFwk::CommonEventSubscriber {
@@ -102,6 +132,7 @@ public:
     int32_t GetSlotId();
 
     void RegisterImsCallCallbackHandler();
+    void RegisterImsRegInfoCallbackHandler();
 #ifdef CELLULAR_CALL_SATELLITE
     void RegisterSatelliteCallCallbackHandler();
 #endif // CELLULAR_CALL_SATELLITE
@@ -304,6 +335,9 @@ private:
     void HandleCallTransferQueryResult(int32_t slotId, const CallForwardQueryInfoList &cFQueryList);
     void ReportCallTransferStatus(int32_t slotId, bool enabled);
     void QueryCallTransferStatus();
+    bool IsCallTransferQueryIntervalElapsed();
+    void RecordCallTransferQueryTime();
+    void FinishCallTransferQueryTask();
     void UpdateRsrvccStateReport(const AppExecFwk::InnerEvent::Pointer &event);
     void ProcessRedundantCode(CallInfoList &callInfoList);
     void ProcessCsPhoneNumber(CallInfoList &list);
@@ -342,7 +376,7 @@ private:
     int32_t slotId_ = DEFAULT_SIM_SLOT_ID;
     int64_t lastCallsDataFlag_ = 0L;
     int32_t callTransferQueryRetryCount_ = 0;
-    CallTransferStatusCache callTransferStatusCache_ = CallTransferStatusCache::NOT_QUERIED;
+    int64_t lastCallTransferQueryTime_ = 0L;
     sptr<CellularCallImsRegInfoCallback> imsRegInfoCallback_ = nullptr;
     int32_t imsRegCallbackRetryCount_ = 0;
     using RequestFuncType = std::function<void(const AppExecFwk::InnerEvent::Pointer &event)>;
