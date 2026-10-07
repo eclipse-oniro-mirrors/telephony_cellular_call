@@ -123,7 +123,8 @@ public:
      * call transfer status report, which does not need to change the default data subscription.
      * @return Returns TELEPHONY_SUCCESS on success, others on failure.
      */
-    int32_t GetCallTransferInfo(int32_t slotId, CallTransferType type, bool isBackgroundQuery = false);
+    int32_t GetCallTransferInfo(int32_t slotId, CallTransferType type,
+        bool isBackgroundQuery = false);
 
     /**
      * Handle Call Restriction mmi code
