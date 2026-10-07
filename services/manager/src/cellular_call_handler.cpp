@@ -1114,12 +1114,11 @@ void CellularCallHandler::SimStateChangeReport(const AppExecFwk::InnerEvent::Poi
     CellularCallConfig config;
     config.HandleSimStateChanged(slotId_);
     lastCallTransferQueryTime_ = 0L;
-    ReportCallTransferStatus(slotId_, false);
-    // bool hasSimCard = false;
-    // DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);
-    // if (!hasSimCard) {
-
-    // }
+    bool hasSimCard = false;
+    DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);
+    if (!hasSimCard) {
+        ReportCallTransferStatus(slotId_, false);
+    }
 }
 
 void CellularCallHandler::FactoryReset(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1164,8 +1163,7 @@ void CellularCallHandler::QueryCallTransferStatus()
     if (callTransferQueryRetryCount_ < MAX_QUERY_CALL_TRANSFER_RETRY_COUNT) {
         callTransferQueryRetryCount_++;
         CellularCallSupplement supplement;
-        supplement.GetCallTransferInfo(slotId_,
-        CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, false, true);
+        supplement.GetCallTransferInfo(slotId_, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, false, true);
         SendEvent(QUERY_CALL_TRANSFER_STATUS_ID, QUERY_CALL_TRANSFER_DELAY_TIME);
         TELEPHONY_LOGI("[slot%{public}d] retry call transfer status query, retryCount:%{public}d",
             slotId_, callTransferQueryRetryCount_);
