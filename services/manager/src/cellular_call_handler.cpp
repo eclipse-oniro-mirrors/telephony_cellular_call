@@ -32,6 +32,7 @@
 #endif // CELLULAR_CALL_SATELLITE
 #include "securec.h"
 #include "call_manager_info.h"
+#include "core_service_client.h"
 #include "telephony_types.h"
 
 namespace OHOS {
@@ -985,11 +986,7 @@ void CellularCallHandler::SimStateChangeReport(const AppExecFwk::InnerEvent::Poi
 {
     CellularCallConfig config;
     config.HandleSimStateChanged(slotId_);
-    bool hasSimCard = false;
-    DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);
-    if (!hasSimCard) {
-        ReportCallTransferStatus(slotId_, false);
-    }
+    ReportCallTransferStatus(slotId_, false);
 }
 
 void CellularCallHandler::FactoryReset(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1836,7 +1833,6 @@ void CellularCallHandler::GetCallTransferResponse(const AppExecFwk::InnerEvent::
 
 void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEvent::Pointer &event)
 {
-    TELEPHONY_LOGE("[slot%{public}d] SetCallTransferInfoResponse", slotId_);
     auto result = event->GetSharedObject<SsBaseResult>();
     if (result == nullptr) {
         TELEPHONY_LOGE("[slot%{public}d] result is null", slotId_);
