@@ -32,7 +32,6 @@
 #endif // CELLULAR_CALL_SATELLITE
 #include "securec.h"
 #include "call_manager_info.h"
-#include "core_service_client.h"
 #include "telephony_types.h"
 
 namespace OHOS {
