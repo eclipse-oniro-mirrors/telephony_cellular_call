@@ -270,12 +270,6 @@ void CellularCallHandler::InitAdditionalFuncMap()
         [this](const AppExecFwk::InnerEvent::Pointer &event) { GetMMIResponse(event); };
     requestFuncMap_[DtmfHandlerId::EVENT_EXECUTE_POST_DIAL] =
         [this](const AppExecFwk::InnerEvent::Pointer &event) { ExecutePostDial(event); };
-    requestFuncMap_[REGISTER_IMS_REG_CALLBACK_RETRY_ID] =
-        [this](const AppExecFwk::InnerEvent::Pointer &event) { RegisterImsRegInfoCallbackHandler(); };
-    requestFuncMap_[TRIGGER_QUERY_CALL_TRANSFER_STATUS_ID] =
-        [this](const AppExecFwk::InnerEvent::Pointer &event) { ScheduleQueryCallTransferStatus(); };
-    requestFuncMap_[QUERY_CALL_TRANSFER_STATUS_ID] =
-        [this](const AppExecFwk::InnerEvent::Pointer &event) { QueryCallTransferStatus(); };
 }
 
 #ifdef SUPPORT_RTT_CALL
@@ -299,26 +293,6 @@ void CellularCallHandler::RegisterImsCallCallbackHandler()
     if (imsCallClient != nullptr) {
         imsCallClient->RegisterImsCallCallbackHandler(slotId_, shared_from_this());
     }
-}
-
-void CellularCallHandler::RegisterImsRegInfoCallbackHandler()
-{
-    CallTransferQueryQueueManager::GetInstance().RegisterHandler(slotId_,
-        std::static_pointer_cast<CellularCallHandler>(shared_from_this()));
-    if (imsRegInfoCallback_ == nullptr) {
-        imsRegInfoCallback_ = new CellularCallImsRegInfoCallback(shared_from_this());
-    }
-    int32_t ret = DelayedRefSingleton<CoreServiceClient>::GetInstance().RegisterImsRegInfoCallback(
-        slotId_, ImsServiceType::TYPE_UT, imsRegInfoCallback_);
-    if (ret != TELEPHONY_SUCCESS) {
-        TELEPHONY_LOGE("[slot%{public}d] RegisterImsRegInfoCallback failed, errcode:%{public}d", slotId_, ret);
-        if (imsRegCallbackRetryCount_ < MAX_IMS_REG_CALLBACK_RETRY_COUNT) {
-            imsRegCallbackRetryCount_++;
-            SendEvent(REGISTER_IMS_REG_CALLBACK_RETRY_ID, IMS_REG_CALLBACK_RETRY_DELAY_TIME);
-        }
-        return;
-    }
-    TELEPHONY_LOGI("[slot%{public}d] RegisterImsRegInfoCallback success", slotId_);
 }
 
 #ifdef CELLULAR_CALL_SATELLITE
@@ -1009,10 +983,8 @@ void CellularCallHandler::StopRttResponse(const AppExecFwk::InnerEvent::Pointer 
 
 void CellularCallHandler::SimStateChangeReport(const AppExecFwk::InnerEvent::Pointer &event)
 {
-    TELEPHONY_LOGE("[slot%{public}d] hjh, SimStateChangeReport", slotId_);
     CellularCallConfig config;
     config.HandleSimStateChanged(slotId_);
-    lastCallTransferQueryTime_ = 0L;
     bool hasSimCard = false;
     DelayedRefSingleton<CoreServiceClient>::GetInstance().HasSimCard(slotId_, hasSimCard);
     if (!hasSimCard) {
