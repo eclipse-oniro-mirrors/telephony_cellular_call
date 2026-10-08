@@ -67,8 +67,7 @@ int32_t SupplementRequestIms::GetClirRequest(int32_t slotId, int32_t index)
     return imsCallClient->GetClir(slotId, index);
 }
 
-int32_t SupplementRequestIms::GetCallTransferRequest(int32_t slotId, int32_t reason, int32_t index,
-    bool isBackgroundQuery)
+int32_t SupplementRequestIms::GetCallTransferRequest(int32_t slotId, int32_t reason, int32_t index)
 {
     TELEPHONY_LOGI("[slot%{public}d] entry", slotId);
     auto imsCallClient = DelayedSingleton<ImsCallClient>::GetInstance();
@@ -76,7 +75,7 @@ int32_t SupplementRequestIms::GetCallTransferRequest(int32_t slotId, int32_t rea
         TELEPHONY_LOGE("[slot%{public}d] ImsCallClient is nullptr.", slotId);
         return CALL_ERR_RESOURCE_UNAVAILABLE;
     }
-    return imsCallClient->GetCallTransfer(slotId, reason, index, isBackgroundQuery);
+    return imsCallClient->GetCallTransfer(slotId, reason, index);
 }
 
 int32_t SupplementRequestIms::SetCallTransferRequest(

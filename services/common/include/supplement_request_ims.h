@@ -74,11 +74,9 @@ public:
      * ranging from {@code 0} to the maximum card slot index number supported by the device.
      * @param reason Indicates the reason of the get call transfer.
      * @param index Indicates the index of command.
-     * @param isBackgroundQuery Indicates whether the query is triggered by the proactive
-     * call transfer status report, which does not need to change the default data subscription.
      * @return Returns {@code TELEPHONY_SUCCESS} on success, others on failure.
      */
-    int32_t GetCallTransferRequest(int32_t slotId, int32_t reason, int32_t index, bool isBackgroundQuery = false);
+    int32_t GetCallTransferRequest(int32_t slotId, int32_t reason, int32_t index);
 
     /**
      * @brief SetCallTransferRequest Set Call Transfer Request with timer

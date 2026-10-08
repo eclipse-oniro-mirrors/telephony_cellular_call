@@ -410,7 +410,6 @@ void CellularCallHiSysEvent::JudgingIncomingTimeOut(
 
 void CellularCallHiSysEvent::SetCallForwardingInfo(const int32_t slotId, const bool enable, const std::string &number)
 {
-    TELEPHONY_LOGE("SetCallForwardingInfo.enable=%{public}d", enable);
     std::lock_guard<ffrt::mutex> lock(mutex_);
     callForwardingSlotId_ = slotId;
     callForwardingEnable_ = enable;

@@ -623,14 +623,14 @@ int32_t ImsCallClient::CanSetCallTransferTime(int32_t slotId, bool &result)
     return imsCallProxy_->CanSetCallTransferTime(slotId, result);
 }
 
-int32_t ImsCallClient::GetCallTransfer(int32_t slotId, int32_t reason, int32_t index, bool isBackgroundQuery)
+int32_t ImsCallClient::GetCallTransfer(int32_t slotId, int32_t reason, int32_t index)
 {
     if (ReConnectService() != TELEPHONY_SUCCESS) {
         TELEPHONY_LOGE("ipc reconnect failed!");
         return TELEPHONY_ERR_IPC_CONNECT_STUB_FAIL;
     }
     std::shared_lock<ffrt::shared_mutex> lock(clientLock_);
-    return imsCallProxy_->GetCallTransfer(slotId, reason, index, isBackgroundQuery);
+    return imsCallProxy_->GetCallTransfer(slotId, reason, index);
 }
 
 int32_t ImsCallClient::SetCallRestriction(

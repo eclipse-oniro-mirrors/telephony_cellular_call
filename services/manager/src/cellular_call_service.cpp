@@ -161,7 +161,6 @@ void CellularCallService::SubscribeToEvents(const std::vector<std::string>& even
         TELEPHONY_LOGI("setSlotId:%{public}d", it);
         handler->SetSlotId(it);
         handler->RegisterImsCallCallbackHandler();
-        handler->RegisterImsRegInfoCallbackHandler();
         {
             std::unique_lock<std::mutex> lock(handlerMapMutex_);
             handlerMap_.insert(std::make_pair(it, handler));
