@@ -184,6 +184,7 @@ void CellularCallRegister::ReportSetTransferResult(int32_t result)
     callManagerCallBack_->UpdateSetTransferResult(result);
 }
 
+#ifdef TELEPHONY_CALL_TRANSFER_STATUS_REPORT
 void CellularCallRegister::ReportCallTransferStatus(int32_t slotId, bool enabled)
 {
     TELEPHONY_LOGI("ReportCallTransferStatus slotId:%{public}d, enabled:%{public}d", slotId, enabled);
@@ -194,6 +195,7 @@ void CellularCallRegister::ReportCallTransferStatus(int32_t slotId, bool enabled
     }
     callManagerCallBack_->UpdateCallTransferStatus(slotId, enabled);
 }
+#endif
 
 void CellularCallRegister::ReportGetClipResult(const ClipResponse &response)
 {

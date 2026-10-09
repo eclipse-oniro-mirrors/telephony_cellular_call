@@ -20,6 +20,9 @@ declare_args() {
   cellular_call_redcap_ability = false
 }
 
+cellular_call_call_transfer_status_report =
+    (target_platform == "phone" || target_platform == "tablet")
+
 global_defines = []
 
 if (cellular_call_tel_power_mode) {
@@ -36,4 +39,9 @@ if (cellular_call_support_rtt) {
 
 if (cellular_call_redcap_ability) {
   global_defines += [ "CELLULAR_CALL_REDCAP_ABILITY" ]
+}
+
+if (cellular_call_call_transfer_status_report) {
+  print("cellular_call support call transfer status report")
+  global_defines += [ "TELEPHONY_CALL_TRANSFER_STATUS_REPORT" ]
 }
