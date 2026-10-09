@@ -50,9 +50,7 @@ public:
 
     void ReportSetTransferResult(int32_t result);
 
-#ifdef TELEPHONY_CALL_TRANSFER_STATUS_REPORT
     void ReportCallTransferStatus(int32_t slotId, bool enabled);
-#endif
 
     void ReportGetClipResult(const ClipResponse &response);
 
