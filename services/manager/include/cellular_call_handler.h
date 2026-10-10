@@ -281,6 +281,8 @@ private:
     void ReportSatelliteCallsData(const SatelliteCurrentCallList &callInfoList);
 #endif // CELLULAR_CALL_SATELLITE
     void HandleOperatorConfigChanged(const AppExecFwk::InnerEvent::Pointer &event);
+    void HandleCallTransferQueryResult(int32_t slotId, const CallForwardQueryInfoList &cFQueryList);
+    void ReportCallTransferStatus(int32_t slotId, bool enabled);
     void UpdateRsrvccStateReport(const AppExecFwk::InnerEvent::Pointer &event);
     void ProcessRedundantCode(CallInfoList &callInfoList);
     void ProcessCsPhoneNumber(CallInfoList &list);

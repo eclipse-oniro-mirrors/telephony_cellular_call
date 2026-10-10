@@ -184,6 +184,17 @@ void CellularCallRegister::ReportSetTransferResult(int32_t result)
     callManagerCallBack_->UpdateSetTransferResult(result);
 }
 
+void CellularCallRegister::ReportCallTransferStatus(int32_t slotId, bool enabled)
+{
+    TELEPHONY_LOGI("ReportCallTransferStatus slotId:%{public}d, enabled:%{public}d", slotId, enabled);
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (callManagerCallBack_ == nullptr) {
+        TELEPHONY_LOGE("ReportCallTransferStatus return, callManagerCallBack_ is nullptr, report fail!");
+        return;
+    }
+    callManagerCallBack_->UpdateCallTransferStatus(slotId, enabled);
+}
+
 void CellularCallRegister::ReportGetClipResult(const ClipResponse &response)
 {
     TELEPHONY_LOGI("ReportGetClipResult result:%{public}d, action:%{public}d, stat:%{public}d", response.result,

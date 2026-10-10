@@ -1109,7 +1109,8 @@ int32_t CellularCallService::SetCallTransferInfo(int32_t slotId, const CallTrans
     if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_DISABLE) {
         DelayedSingleton<CellularCallHiSysEvent>::GetInstance()->SetCallForwardingInfo(
             slotId, false, cTInfo.transferNum);
-    } else if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_ENABLE) {
+    } else if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_ENABLE ||
+        cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_REGISTRATION) {
         DelayedSingleton<CellularCallHiSysEvent>::GetInstance()->SetCallForwardingInfo(
             slotId, true, cTInfo.transferNum);
     }

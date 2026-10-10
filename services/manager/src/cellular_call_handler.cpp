@@ -985,6 +985,7 @@ void CellularCallHandler::SimStateChangeReport(const AppExecFwk::InnerEvent::Poi
 {
     CellularCallConfig config;
     config.HandleSimStateChanged(slotId_);
+    ReportCallTransferStatus(slotId_, false);
 }
 
 void CellularCallHandler::FactoryReset(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1003,6 +1004,33 @@ void CellularCallHandler::SimAccountLoadedReport(const AppExecFwk::InnerEvent::P
 {
     CellularCallConfig config;
     config.HandleSimAccountLoaded(slotId_);
+}
+
+void CellularCallHandler::HandleCallTransferQueryResult(
+    int32_t slotId, const CallForwardQueryInfoList &cFQueryList)
+{
+    if (cFQueryList.result.result != TELEPHONY_SUCCESS && cFQueryList.callSize == 0) {
+        TELEPHONY_LOGE("[slot%{public}d] query call transfer failed, errcode:%{public}d",
+            slotId, cFQueryList.result.result);
+        return;
+    }
+    bool enabled = false;
+    for (const auto &call : cFQueryList.calls) {
+        if (call.status == 1) {
+            enabled = true;
+            break;
+        }
+    }
+    ReportCallTransferStatus(slotId, enabled);
+}
+
+void CellularCallHandler::ReportCallTransferStatus(int32_t slotId, bool enabled)
+{
+    if (registerInstance_ == nullptr) {
+        TELEPHONY_LOGE("[slot%{public}d] registerInstance_ is null", slotId);
+        return;
+    }
+    registerInstance_->ReportCallTransferStatus(slotId, enabled);
 }
 
 void CellularCallHandler::ResidentNetworkChangeReport(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1795,6 +1823,11 @@ void CellularCallHandler::GetCallTransferResponse(const AppExecFwk::InnerEvent::
     }
     CellularCallSupplement supplement;
     supplement.EventGetCallTransferInfo(*cFQueryList, cFQueryList->result.message, flag);
+    
+    if (cFQueryList->result.reason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_UNCONDITIONAL) ||
+        cFQueryList->result.reason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_ALL)) {
+        HandleCallTransferQueryResult(slotId_, *cFQueryList);
+    }
 }
 
 void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEvent::Pointer &event)
@@ -1804,6 +1837,8 @@ void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEve
         TELEPHONY_LOGE("[slot%{public}d] result is null", slotId_);
         return;
     }
+    SsRequestCommand ss;
+    int32_t getSsRet = GetSsRequestCommand(result->index, ss);
     int32_t flag = SS_FROM_MMI_CODE;
     int32_t action = INVALID_INDEX;
     int32_t ret = ConfirmAndRemoveSsRequestCommand(result->index, flag, action);
@@ -1820,6 +1855,12 @@ void CellularCallHandler::SetCallTransferInfoResponse(const AppExecFwk::InnerEve
     callHiSysEvent->GetCallForwardingInfo(info);
     if (result->result == TELEPHONY_SUCCESS) {
         CoreManagerInner::GetInstance().SetVoiceCallForwarding(info.slotId, info.enable, info.number);
+        // Report the status when the unconditional call transfer setting is updated successfully.
+        if (getSsRet == TELEPHONY_SUCCESS &&
+            (ss.cfReason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_UNCONDITIONAL) ||
+            (ss.cfReason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_ALL)))) {
+            ReportCallTransferStatus(info.slotId, info.enable);
+        }
     } else {
         result->result = TELEPHONY_ERR_RIL_CMD_FAIL;
     }
