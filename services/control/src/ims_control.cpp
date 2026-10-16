@@ -482,15 +482,15 @@ int32_t IMSControl::ReportIncomingInfo(int32_t slotId, const ImsCurrentCallList 
 {
     TELEPHONY_LOGI("ReportIncomingInfo entry");
     CallsReportInfo callsReportInfo;
-    for (int32_t i = 0; i < imsCurrentCallInfoList.callSize; ++i) {
-        CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, imsCurrentCallInfoList.calls[i]);
+    for (const auto &call : imsCurrentCallInfoList.calls) {
+        CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, call);
 
         CellularCallConnectionIMS connection;
-        connection.SetStatus(static_cast<TelCallState>(imsCurrentCallInfoList.calls[i].state));
-        connection.SetIndex(imsCurrentCallInfoList.calls[i].index);
-        connection.SetNumber(imsCurrentCallInfoList.calls[i].number);
+        connection.SetStatus(static_cast<TelCallState>(call.state));
+        connection.SetIndex(call.index);
+        connection.SetNumber(call.number);
         connection.SetOrUpdateCallReportInfo(reportInfo);
-        SetConnectionData(connectionMap_, imsCurrentCallInfoList.calls[i].index, connection);
+        SetConnectionData(connectionMap_, call.index, connection);
 
         callsReportInfo.callVec.push_back(reportInfo);
     }
@@ -512,26 +512,26 @@ int32_t IMSControl::ReportUpdateInfo(int32_t slotId, const ImsCurrentCallList &c
 {
     TELEPHONY_LOGD("ReportUpdateInfo entry");
     CallsReportInfo callsReportInfo;
-    for (int32_t i = 0; i < callInfoList.callSize; ++i) {
-        CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, callInfoList.calls[i]);
-        if (callInfoList.callSize == 1 && reportInfo.state == TelCallState::CALL_STATUS_WAITING) {
+    for (const auto &call : callInfoList.calls) {
+        CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, call);
+        if (callInfoList.calls.size() == 1 && reportInfo.state == TelCallState::CALL_STATUS_WAITING) {
             TELEPHONY_LOGI("only one call, report incoming state instead of waiting state");
             reportInfo.state = TelCallState::CALL_STATUS_INCOMING;
         }
         auto pConnection = FindConnectionByIndex<ImsConnectionMap &, CellularCallConnectionIMS *>(
-            connectionMap_, callInfoList.calls[i].index);
+            connectionMap_, call.index);
         if (pConnection == nullptr) {
             CellularCallConnectionIMS connection;
             connection.SetOrUpdateCallReportInfo(reportInfo);
             connection.SetFlag(true);
-            connection.SetIndex(callInfoList.calls[i].index);
-            connection.SetNumber(callInfoList.calls[i].number);
-            SetConnectionData(connectionMap_, callInfoList.calls[i].index, connection);
+            connection.SetIndex(call.index);
+            connection.SetNumber(call.number);
+            SetConnectionData(connectionMap_, call.index, connection);
         } else {
             TelCallState preCallState = pConnection->GetStatus();
             pConnection->SetFlag(true);
-            pConnection->SetIndex(callInfoList.calls[i].index);
-            pConnection->SetNumber(callInfoList.calls[i].number);
+            pConnection->SetIndex(call.index);
+            pConnection->SetNumber(call.number);
             pConnection->SetOrUpdateCallReportInfo(reportInfo);
             TelCallState curCallState = pConnection->GetStatus();
             if (IsConnectedOut(preCallState, curCallState)) {
