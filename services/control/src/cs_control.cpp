@@ -476,7 +476,7 @@ int32_t CSControl::ReportUpdateInfo(int32_t slotId, const CallInfoList &callInfo
 {
     TELEPHONY_LOGD("ReportUpdateInfo entry");
     CallsReportInfo callsReportInfo;
-    for (int32_t i = 0; i < callInfoList.callSize; ++i) {
+    for (const auto i = 0; i < callInfoList.callSize; ++i) {
         CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, callInfoList.calls[i]);
         if (callInfoList.callSize == 1 && reportInfo.state == TelCallState::CALL_STATUS_WAITING) {
             TELEPHONY_LOGI("only one call, report incoming state instead of waiting state");
