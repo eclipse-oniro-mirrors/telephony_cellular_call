@@ -28,7 +28,6 @@
 
 namespace OHOS {
 namespace Telephony {
-constexpr const char *KEY_CONST_TELEPHONY_READ_THIRD_PARTY_LIB = "const.telephony.read_third_party_lib";
 constexpr int32_t INVALID_OPERATOR_CONFIG_STATE = -1;
 class CellularCallConfig {
 public:
@@ -462,9 +461,7 @@ public:
     void UpdateImsCapabilities(int32_t slotId, bool needUpdateUtCapability, bool isOperatorConfigChanged,
         int32_t state);
 
-    bool NeedReadThirdParyLib();
-
-        /**
+    /**
      * On Inquire video Call Waiting
      *
      * @param data  send data
@@ -489,6 +486,10 @@ public:
     bool IsVolteSupport(int32_t slotId);
     void HandleEccListChange();
     void SetClearCode(int32_t slotId, int32_t cause);
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+    static void SetRadioOn(bool isRadioOn);
+    void SetPreferredNetworkByConfig(int32_t slotId);
+#endif
 
 private:
     static void InitDefaultOperatorConfig();
@@ -525,6 +526,10 @@ private:
         std::vector<std::string> &callListWithCard, std::vector<std::string> &callListNoCard);
     bool ProcessCurrentPlmnEccList(int32_t slotId, std::vector<std::string> &callListWithCard,
         std::vector<std::string> &callListNoCard);
+    void UpdateHplmnFakeEccList(const std::vector<std::string> &callList, const std::string &hplmn,
+                                int32_t slotId, std::vector<EmergencyCall> &eccList, const std::string &mcc);
+    void UpdateEccListByFakeEccList(int32_t slotId, std::vector<EmergencyCall> &eccList);
+    void ClearCachedEcclist(int32_t slotId);
 
 private:
     struct EccList {
@@ -541,7 +546,7 @@ private:
     static std::map<int32_t, std::string> curPlmn_;
     static std::shared_mutex simStateLock_;
     static std::shared_mutex mutex_;
-    static std::mutex operatorMutex_;
+    static ffrt::mutex operatorMutex_;
     ConfigRequest configRequest_;
     static std::map<int32_t, bool> imsSwitchOnByDefault_;
     static std::map<int32_t, bool> hideImsSwitch_;
@@ -560,15 +565,21 @@ private:
     static std::map<int32_t, bool> readyToCall_;
     static std::map<int32_t, int32_t> vonrSwithStatus_;
     static std::map<int32_t, bool> imsSipCauseEnable_;
+    static std::map<int32_t, bool> shouldCheckImsAfterNvUpdate_;
     static int32_t lastDisconnectCode_;
     static bool isOperatorConfigInit_;
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+    static bool isRadioOn_;
+    static bool isOperatorConfigChanged_;
+#endif
     struct cellularNetworkState {
         bool isInService_ = false;
         bool isRoaming_ = false;
     };
     static std::map<int32_t, cellularNetworkState> networkServiceState_;
-    static EccList hplmnEccList_[2];
-    static EccList currentPlmnEccList_[2];
+    static std::vector<EccList> hplmnEccList_;
+    static std::vector<EccList> currentPlmnEccList_;
+    static std::vector<EccList> hplmnFakeEccList_;
     static ffrt::mutex plmnMutex_;
     static ffrt::mutex modeMutex_;
 };

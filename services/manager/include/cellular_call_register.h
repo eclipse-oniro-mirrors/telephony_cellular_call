@@ -50,6 +50,8 @@ public:
 
     void ReportSetTransferResult(int32_t result);
 
+    void ReportCallTransferStatus(int32_t slotId, bool enabled);
+
     void ReportGetClipResult(const ClipResponse &response);
 
     void ReportGetClirResult(const ClirResponse &response);

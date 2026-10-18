@@ -28,6 +28,9 @@
 #include "string_ex.h"
 #include "telephony_types.h"
 #include "network_search_types.h"
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+#include "telephony_ext_wrapper.h"
+#endif
 
 namespace OHOS {
 namespace Telephony {
@@ -45,14 +48,21 @@ const int32_t SAVE_IMS_SWITCH_SUCCESS_NOT_CHANGED = 2;
 const int32_t INVALID_SIM_ID = 0;
 const int32_t IMS_GBA_BIT = 0x02;
 const int32_t SYSTEM_PARAMETER_LENGTH = 0x02;
-const int32_t SLOT_NUM = 2;
 const int MCC_LEN = 3;
 const int32_t IMS_CAUSE_BASE = 18432;
+const int32_t PREFERRED_NETWORK_MODE_KEY_LEN = 64;
 constexpr const char *DISCONNECT_CODE = "telephony.call.disconnectCode";
 constexpr const char *KEY_IMS_SIP_CAUSE_CODE_ENABLE_ON_BOOL = "ims_sip_cause_code_enable";
+constexpr const char *NETWORK_SEARCH_SETTING_URI =
+    "datashare:///com.ohos.settingsdata/entry/settingsdata/SETTINGSDATA?Proxy=true&key=preferred_network_mode";
+constexpr const char *PREFERRED_NETWORK_MODE = "settings.telephony.preferrednetworkmode";
 const std::string LAST_ICCID_KEY = "persist.telephony.last_iccid";
 const std::string IMSSWITCH_STATE = "persist.telephony.imsswitch";
 const std::string VONR_STATE = "persist.telephony.vonrswitch";
+static constexpr int32_t NR_MODE_MIN = static_cast<int32_t>(PreferredNetworkMode::CORE_NETWORK_MODE_NR);
+static constexpr int32_t NR_MODE_MAX =
+    static_cast<int32_t>(PreferredNetworkMode::CORE_NETWORK_MODE_NR_LTE_TDSCDMA_WCDMA_GSM_EVDO_CDMA);
+static constexpr int32_t DEFAULT_NETWORK_MODE = static_cast<int32_t>(PreferredNetworkMode::CORE_NETWORK_MODE_MAX_VALUE);
 
 std::map<int32_t, int32_t> CellularCallConfig::modeMap_;
 std::map<int32_t, int32_t> CellularCallConfig::modeTempMap_;
@@ -72,9 +82,10 @@ std::map<int32_t, bool> CellularCallConfig::forceVolteSwitchOn_;
 std::map<int32_t, bool> CellularCallConfig::videoCallWaiting_;
 std::map<int32_t, int32_t> CellularCallConfig::vonrSwithStatus_;
 std::map<int32_t, bool> CellularCallConfig::imsSipCauseEnable_;
+std::map<int32_t, bool> CellularCallConfig::shouldCheckImsAfterNvUpdate_;
 int32_t CellularCallConfig::lastDisconnectCode_ = 0;
 std::shared_mutex CellularCallConfig::mutex_;
-std::mutex CellularCallConfig::operatorMutex_;
+ffrt::mutex CellularCallConfig::operatorMutex_;
 std::shared_mutex CellularCallConfig::simStateLock_;
 std::map<int32_t, std::vector<EmergencyCall>> CellularCallConfig::eccListRadioMap_;
 std::vector<EmergencyCall> CellularCallConfig::eccList3gppHasSim_;
@@ -85,14 +96,19 @@ std::map<int32_t, std::string> CellularCallConfig::curPlmn_;
 std::map<int32_t, CellularCallConfig::cellularNetworkState> CellularCallConfig::networkServiceState_;
 std::map<int32_t, bool> CellularCallConfig::readyToCall_;
 bool CellularCallConfig::isOperatorConfigInit_ = false;
-CellularCallConfig::EccList CellularCallConfig::hplmnEccList_[SLOT_NUM];
-CellularCallConfig::EccList CellularCallConfig::currentPlmnEccList_[SLOT_NUM];
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+bool CellularCallConfig::isRadioOn_ = false;
+bool CellularCallConfig::isOperatorConfigChanged_ = false;
+#endif
+std::vector<CellularCallConfig::EccList> CellularCallConfig::hplmnEccList_(SIM_SLOT_COUNT);
+std::vector<CellularCallConfig::EccList> CellularCallConfig::currentPlmnEccList_(SIM_SLOT_COUNT);
+std::vector<CellularCallConfig::EccList> CellularCallConfig::hplmnFakeEccList_(SIM_SLOT_COUNT);
 ffrt::mutex CellularCallConfig::plmnMutex_;
 ffrt::mutex CellularCallConfig::modeMutex_;
 
 void CellularCallConfig::InitDefaultOperatorConfig()
 {
-    std::lock_guard<std::mutex> lock(operatorMutex_);
+    std::lock_guard<ffrt::mutex> lock(operatorMutex_);
     for (int32_t i = DEFAULT_SIM_SLOT_ID; i < SIM_SLOT_COUNT; ++i) {
         CellularCallConfig::imsSwitchOnByDefault_.insert(std::pair<int, bool>(i, false));
         CellularCallConfig::hideImsSwitch_.insert(std::pair<int, bool>(i, false));
@@ -117,6 +133,7 @@ void CellularCallConfig::InitDefaultOperatorConfig()
             cellularState));
         CellularCallConfig::videoCallWaiting_.insert(std::pair<int, bool>(i, true));
         CellularCallConfig::imsSipCauseEnable_.insert(std::pair<int, bool>(i, false));
+        CellularCallConfig::shouldCheckImsAfterNvUpdate_.insert(std::pair<int, bool>(i, true));
     }
 }
 
@@ -178,7 +195,6 @@ int32_t CellularCallConfig::SetImsSwitchStatus(int32_t slotId, bool active)
 
 int32_t CellularCallConfig::GetImsSwitchStatus(int32_t slotId, bool &enabled)
 {
-    TELEPHONY_LOGD("entry, slotId: %{public}d", slotId);
     auto itorHide = hideImsSwitch_.find(slotId);
     if (itorHide != hideImsSwitch_.end() && itorHide->second) {
         enabled = true;
@@ -221,7 +237,7 @@ int32_t CellularCallConfig::SetVoNRSwitchStatus(int32_t slotId, int32_t state)
     CoreManagerInner::GetInstance().GetSimState(slotId, simState);
     if (simState == SimState::SIM_STATE_LOADED || simState == SimState::SIM_STATE_READY) {
         configRequest_.SetVoNRSwitchStatusRequest(slotId, state);
-        std::lock_guard<std::mutex> lock(operatorMutex_);
+        std::lock_guard<ffrt::mutex> lock(operatorMutex_);
         vonrSwithStatus_[slotId] = state;
         return TELEPHONY_SUCCESS;
     }
@@ -248,6 +264,8 @@ void CellularCallConfig::HandleSimStateChanged(int32_t slotId)
     if (CheckAndUpdateSimState(slotId)) {
         UpdateEccNumberList(slotId);
     }
+    std::lock_guard<ffrt::mutex> lock(operatorMutex_);
+    shouldCheckImsAfterNvUpdate_[slotId] = true;
 }
 
 void CellularCallConfig::HandleFactoryReset(int32_t slotId)
@@ -265,6 +283,9 @@ void CellularCallConfig::HandleFactoryReset(int32_t slotId)
     int32_t ret = SaveImsSwitch(slotId, BooleanToImsSwitchValue(imsSwitchOnByDefault_[slotId]));
     TELEPHONY_LOGI("Save ims switch ret: %{public}d", ret);
     UpdateImsCapabilities(slotId, true, false, INVALID_OPERATOR_CONFIG_STATE);
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+    TELEPHONY_EXT_WRAPPER.HandleRedcapFactoryResetFunc(slotId);
+#endif
 }
 
 void CellularCallConfig::HandleSimRecordsLoaded(int32_t slotId)
@@ -275,6 +296,8 @@ void CellularCallConfig::HandleSimRecordsLoaded(int32_t slotId)
     TELEPHONY_LOGI("CellularCallConfig::HandleSimRecordsLoaded entry, slotId: %{public}d", slotId);
     CheckAndUpdateSimState(slotId);
     UpdateEccNumberList(slotId);
+    std::lock_guard<ffrt::mutex> lock(operatorMutex_);
+    shouldCheckImsAfterNvUpdate_[slotId] = true;
 }
 
 void CellularCallConfig::HandleResidentNetworkChange(int32_t slotId, std::string plmn)
@@ -296,7 +319,7 @@ void CellularCallConfig::HandleNetworkStateChange(int32_t slotId)
         return;
     }
     {
-        std::lock_guard<std::mutex> lock(operatorMutex_);
+        std::lock_guard<ffrt::mutex> lock(operatorMutex_);
         TELEPHONY_LOGI("CellularCallConfig::HandleNetworkStateChange entry, slotId: %{public}d", slotId);
         auto itSlotId = networkServiceState_.find(slotId);
         if (itSlotId == networkServiceState_.end()) {
@@ -310,6 +333,10 @@ void CellularCallConfig::HandleNetworkStateChange(int32_t slotId)
             return;
         }
         bool isInSrv = networkState->GetRegStatus() == RegServiceState::REG_STATE_IN_SERVICE ? true : false;
+        if (isInSrv && shouldCheckImsAfterNvUpdate_[slotId]) {
+            GetImsSwitchStatusRequest(slotId);
+            shouldCheckImsAfterNvUpdate_[slotId] = false;
+        }
         bool isRoam = networkState->IsRoaming();
         if (networkServiceState_[slotId].isInService_ == isInSrv
             && networkServiceState_[slotId].isRoaming_ == isRoam) {
@@ -462,11 +489,18 @@ void CellularCallConfig::HandleSimAccountLoaded(int32_t slotId)
     }
     TELEPHONY_LOGI("entry, slotId: %{public}d", slotId);
     CheckAndUpdateSimState(slotId);
+    UpdateImsConfiguration(slotId, INVALID_OPERATOR_CONFIG_STATE, false);
     UpdateEccNumberList(slotId);
 }
 
 void CellularCallConfig::HandleOperatorConfigChanged(int32_t slotId, int32_t state)
 {
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+    {
+        std::unique_lock<std::shared_mutex> lock(mutex_);
+        isOperatorConfigChanged_ = true;
+    }
+#endif
     UpdateImsConfiguration(slotId, state, true);
 }
 
@@ -501,7 +535,7 @@ void CellularCallConfig::UpdateImsConfiguration(int32_t slotId, int32_t configSt
 int32_t CellularCallConfig::ParseAndCacheOperatorConfigs(int32_t slotId, OperatorConfig &poc)
 {
     TELEPHONY_LOGI("CellularCallConfig::ParseAndCacheOperatorConfigs start. slotId %{public}d", slotId);
-    std::lock_guard<std::mutex> lock(operatorMutex_);
+    std::lock_guard<ffrt::mutex> lock(operatorMutex_);
     if (!IsValidSlotId(slotId)) {
         return TELEPHONY_ERROR;
     }
@@ -579,6 +613,7 @@ void CellularCallConfig::UpdateImsCapabilities(int32_t slotId, bool needUpdateUt
     configRequest_.UpdateImsCapabilities(slotId, imsCapabilityList);
     configRequest_.SetImsSwitchStatusRequest(slotId, IsNeedTurnOnIms(imsCapabilityList));
 }
+
 bool CellularCallConfig::IsGbaValid(int32_t slotId)
 {
     if (imsGbaRequired_[slotId]) {
@@ -595,21 +630,37 @@ bool CellularCallConfig::IsGbaValid(int32_t slotId)
     return true;
 }
 
+__attribute__((always_inline)) inline void GetPreferredNetworkModeValue(int32_t slotId, int32_t &networkMode)
+{
+    std::vector<char> key(PREFERRED_NETWORK_MODE_KEY_LEN);
+    if (snprintf_s(key.data(), key.size(), key.size(), "%s_%d", PREFERRED_NETWORK_MODE, slotId) < 0) {
+        return;
+    }
+    std::string keyStr(key.data());
+    std::string value = "";
+    auto rdbHelper = DelayedSingleton<CellularCallRdbHelper>::GetInstance();
+    if (rdbHelper != nullptr && rdbHelper->Query(NETWORK_SEARCH_SETTING_URI, keyStr, value) == 0) {
+        StrToInt(value, networkMode);
+    }
+}
+
 void CellularCallConfig::UpdateImsVoiceCapabilities(int32_t slotId, ImsCapabilityList &imsCapabilityList)
 {
-    ImsCapability vonrCapability;
-    vonrCapability.imsCapabilityType = ImsCapabilityType::CAPABILITY_TYPE_VOICE;
-    vonrCapability.imsRadioTech = ImsRegTech::IMS_REG_TECH_NR;
-    vonrCapability.enable = IsVonrSupportedForImsSwitch(slotId, IsGbaValid(slotId));
-    imsCapabilityList.imsCapabilities.push_back(vonrCapability);
+    int32_t networkMode = DEFAULT_NETWORK_MODE;
+    GetPreferredNetworkModeValue(slotId, networkMode);
+    if (networkMode >= NR_MODE_MIN && networkMode <= NR_MODE_MAX) {
+        ImsCapability vonrCapability;
+        vonrCapability.imsCapabilityType = ImsCapabilityType::CAPABILITY_TYPE_VOICE;
+        vonrCapability.imsRadioTech = ImsRegTech::IMS_REG_TECH_NR;
+        vonrCapability.enable = IsVonrSupportedForImsSwitch(slotId, IsGbaValid(slotId));
+        imsCapabilityList.imsCapabilities.push_back(vonrCapability);
+    }
 
     ImsCapability volteCapability;
     volteCapability.imsCapabilityType = ImsCapabilityType::CAPABILITY_TYPE_VOICE;
     volteCapability.imsRadioTech = ImsRegTech::IMS_REG_TECH_LTE;
     volteCapability.enable = IsVolteSupport(slotId);
     imsCapabilityList.imsCapabilities.push_back(volteCapability);
-    TELEPHONY_LOGI("slotId = %{public}d, vonrCapability = %{public}d, volteCapability = %{public}d,",
-        slotId, vonrCapability.enable, volteCapability.enable);
 }
 
 void CellularCallConfig::UpdateImsUtCapabilities(int32_t slotId, ImsCapabilityList &imsCapabilityList)
@@ -785,7 +836,31 @@ void CellularCallConfig::HandleSetLteImsSwitchResult(int32_t slotId, ErrType res
         TELEPHONY_LOGE("HandleSetLteImsSwitchResult set ims switch to modem failed!");
         // need to reset the Ims Switch parameter and notify APP to update UI.
     }
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+    SetPreferredNetworkByConfig(slotId);
+#endif
 }
+
+#ifdef CELLULAR_CALL_REDCAP_ABILITY
+void CellularCallConfig::SetRadioOn(bool isRadioOn)
+{
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    isRadioOn_ = isRadioOn;
+}
+
+void CellularCallConfig::SetPreferredNetworkByConfig(int32_t slotId)
+{
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    TELEPHONY_LOGI("SetPreferredNetworkByConfig isOperatorConfigChanged: %{public}d, isRadioOn: %{public}d",
+        isOperatorConfigChanged_, isRadioOn_);
+    bool isProcess = isOperatorConfigChanged_ || isRadioOn_;
+    isOperatorConfigChanged_ = false;
+    lock.unlock();
+    if (isProcess) {
+        TELEPHONY_EXT_WRAPPER.SetPreferredNetworkByConfigFunc(slotId);
+    }
+}
+#endif
 
 void CellularCallConfig::HandleSetVoNRSwitchResult(int32_t slotId, ErrType result)
 {
@@ -794,7 +869,7 @@ void CellularCallConfig::HandleSetVoNRSwitchResult(int32_t slotId, ErrType resul
         TELEPHONY_LOGE("HandleSetVoNRSwitchResult set vonr switch to modem failed!");
         return;
     }
-    std::unique_lock<std::mutex> lock(operatorMutex_);
+    std::unique_lock<ffrt::mutex> lock(operatorMutex_);
     SaveVoNRState(slotId, vonrSwithStatus_[slotId]);
     lock.unlock();
     ImsCapabilityList imsCapabilityList;
@@ -895,7 +970,6 @@ void CellularCallConfig::InitModeActive()
     eccList3gppNoSim_.push_back(BuildDefaultEmergencyCall("118", SimpresentType::TYPE_NO_CARD));
     eccList3gppNoSim_.push_back(BuildDefaultEmergencyCall("119", SimpresentType::TYPE_NO_CARD));
     eccList3gppNoSim_.push_back(BuildDefaultEmergencyCall("999", SimpresentType::TYPE_NO_CARD));
-    TELEPHONY_LOGD("InitModeActive finish");
 }
 
 EmergencyCall CellularCallConfig::BuildDefaultEmergencyCall(const std::string &number, SimpresentType simType)
@@ -960,19 +1034,55 @@ void CellularCallConfig::MergeEccCallList(int32_t slotId)
     CoreManagerInner::GetInstance().GetSimOperatorNumeric(slotId, u16Hplmn);
     std::string hplmn = Str16ToStr8(u16Hplmn);
     if (hasSim && !GetRoamingState(slotId) && !hplmn.empty()) {
-        std::vector<EccNum> eccVec;
-        DelayedSingleton<CellularCallRdbHelper>::GetInstance()->QueryEccList(hplmn, eccVec);
-        if (!eccVec.empty()) {
+        std::unique_lock<ffrt::mutex> lock(plmnMutex_);
+        auto fakeEccListPlmn = hplmnFakeEccList_[slotId].plmn;
+        lock.unlock();
+        if (fakeEccListPlmn == hplmn) {
+            UpdateEccListByFakeEccList(slotId, tempEccList[slotId]);
+        } else {
+            std::vector<EccNum> eccVec;
+            DelayedSingleton<CellularCallRdbHelper>::GetInstance()->QueryEccList(hplmn, eccVec);
+            if (eccVec.empty()) {
+                UniqueEccCallList(slotId, tempEccList[slotId]);
+                return;
+            }
             std::string ecc = eccVec[0].ecc_fake;
             std::vector<std::string> callList = StandardizeUtils::Split(ecc, ",");
-            for (auto it : callList) {
-                EmergencyCall call = BuildDefaultEmergencyCall(it, SimpresentType::TYPE_HAS_CARD);
-                call.mcc = mcc;
-                tempEccList[slotId].push_back(call);
-            }
+            UpdateHplmnFakeEccList(callList, hplmn, slotId, tempEccList[slotId], mcc);
         }
     }
     UniqueEccCallList(slotId, tempEccList[slotId]);
+}
+
+void CellularCallConfig::UpdateHplmnFakeEccList(const std::vector<std::string> &callList, const std::string &hplmn,
+    int32_t slotId, std::vector<EmergencyCall> &eccList, const std::string &mcc)
+{
+    if (callList.empty()) {
+        return;
+    }
+    std::unique_lock<ffrt::mutex> lock(plmnMutex_);
+    hplmnFakeEccList_[slotId].plmn = hplmn;
+    for (auto it : callList) {
+        EmergencyCall call = BuildDefaultEmergencyCall(it, SimpresentType::TYPE_HAS_CARD);
+        call.mcc = mcc;
+        eccList.push_back(call);
+        auto ecc = std::find(hplmnFakeEccList_[slotId].eccInfoList.begin(), hplmnFakeEccList_[slotId].eccInfoList.end(),
+            call);
+        if (ecc == hplmnFakeEccList_[slotId].eccInfoList.end()) {
+            hplmnFakeEccList_[slotId].eccInfoList.push_back(call);
+        }
+    }
+}
+ 
+void CellularCallConfig::UpdateEccListByFakeEccList(int32_t slotId, std::vector<EmergencyCall> &eccList)
+{
+    std::unique_lock<ffrt::mutex> lock(plmnMutex_);
+    for (auto eccInfo : hplmnFakeEccList_[slotId].eccInfoList) {
+        auto it = std::find(eccList.begin(), eccList.end(), eccInfo);
+        if (it == eccList.end()) {
+            eccList.push_back(eccInfo);
+        }
+    }
 }
 
 void CellularCallConfig::UniqueEccCallList(int32_t slotId, std::vector<EmergencyCall> &eccList)
@@ -1168,7 +1278,7 @@ std::int32_t CellularCallConfig::GetCallWaitingServiceClassConfig(int32_t slotId
 
 std::vector<std::string> CellularCallConfig::GetImsCallDisconnectResoninfoMappingConfig(int32_t slotId)
 {
-    std::lock_guard<std::mutex> lock(operatorMutex_);
+    std::lock_guard<ffrt::mutex> lock(operatorMutex_);
     if (!IsValidSlotId(slotId)) {
         return std::vector<std::string> {};
     }
@@ -1210,15 +1320,6 @@ bool CellularCallConfig::IsReadyToCall(int32_t slotId)
     return readyToCall_[slotId];
 }
 
-bool CellularCallConfig::NeedReadThirdParyLib()
-{
-    std::string readThirdParty = system::GetParameter(KEY_CONST_TELEPHONY_READ_THIRD_PARTY_LIB, "");
-    if (readThirdParty.compare("false") == 0) {
-        return false;
-    }
-    return true;
-}
-
 int32_t CellularCallConfig::GetVideoCallWaiting(int32_t slotId, bool &enabled)
 {
     TELEPHONY_LOGE("entry, slotId: %{public}d", slotId);
@@ -1253,16 +1354,22 @@ bool CellularCallConfig::IsVolteSupport(int32_t slotId)
 
 void CellularCallConfig::HandleEccListChange()
 {
-    std::unique_lock<ffrt::mutex> lock(plmnMutex_);
-    for (int i = 0; i < SLOT_NUM; ++i) {
-        hplmnEccList_[i].plmn = "";
-        hplmnEccList_[i].eccInfoList.clear();
-        currentPlmnEccList_[i].plmn = "";
-        currentPlmnEccList_[i].eccInfoList.clear();
+    for (int i = 0; i < SIM_SLOT_COUNT; ++i) {
+        ClearCachedEcclist(i);
+        UpdateEccNumberList(i);
     }
-    lock.unlock();
-    UpdateEccNumberList(0);
-    UpdateEccNumberList(1);
+}
+
+void CellularCallConfig::ClearCachedEcclist(int32_t slotId)
+{
+    std::unique_lock<ffrt::mutex> lock(plmnMutex_);
+    hplmnEccList_[slotId].plmn = "";
+    hplmnEccList_[slotId].eccInfoList.clear();
+    currentPlmnEccList_[slotId].plmn = "";
+    currentPlmnEccList_[slotId].eccInfoList.clear();
+    hplmnFakeEccList_[slotId].plmn = "";
+    hplmnFakeEccList_[slotId].eccInfoList.clear();
+    TELEPHONY_LOGI("Cached Ecclist is cleared.");
 }
 
 void CellularCallConfig::SetClearCode(int32_t slotId, int32_t cause)

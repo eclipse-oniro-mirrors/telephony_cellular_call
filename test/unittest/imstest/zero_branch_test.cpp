@@ -1140,5 +1140,155 @@ HWTEST_F(ZeroBranchTest, Telephony_CellularCallConfigRequest_001, Function | Med
     ASSERT_EQ(configReq.UpdateImsCapabilities(SIM1_SLOTID, imsCapabilityList), TELEPHONY_SUCCESS);
 #endif
 }
+ 
+/**
+ * @tc.number   Telephony_CellularCallConfig_UpdateImsVoiceCapabilities_001
+ * @tc.name     Test UpdateImsVoiceCapabilities with VoLTE disabled
+ * @tc.desc     Function test - VoLTE is disabled, should not add VoLTE capability
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallConfig_UpdateImsVoiceCapabilities_001, Function | MediumTest | Level3)
+{
+    CellularCallConfig config;
+    ImsCapabilityList imsCapabilityList;
+    int32_t VONR_SWITCH_STATUS_OFF = 0;
+    config.volteSupported_[SIM1_SLOTID] = false;
+    config.imsGbaRequired_[SIM1_SLOTID] = false;
+    config.vonrSwithStatus_[SIM1_SLOTID] = VONR_SWITCH_STATUS_OFF;
+    config.nrModeSupportedList_[SIM1_SLOTID] = {CARRIER_NR_AVAILABILITY_NSA, CARRIER_NR_AVAILABILITY_SA};
+    config.UpdateImsVoiceCapabilities(SIM1_SLOTID, imsCapabilityList);
+    ASSERT_EQ(imsCapabilityList.imsCapabilities.size(), 1);
+}
+ 
+/**
+ * @tc.number   Telephony_CellularCallConfig_UpdateImsVoiceCapabilities_002
+ * @tc.name     Test UpdateImsVoiceCapabilities with invalid slotId
+ * @tc.desc     Function test - invalid slotId should still work without crash
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallConfig_UpdateImsVoiceCapabilities_002, Function | MediumTest | Level3)
+{
+    CellularCallConfig config;
+    ImsCapabilityList imsCapabilityList;
+    config.volteSupported_[INVALID_SLOTID] = true;
+    config.imsGbaRequired_[INVALID_SLOTID] = false;
+    config.UpdateImsVoiceCapabilities(INVALID_SLOTID, imsCapabilityList);
+    ASSERT_EQ(imsCapabilityList.imsCapabilities.size(), 1);
+}
+ 
+/**
+ * @tc.number   Telephony_CellularCallConfig_UpdateImsVoiceCapabilities_003
+ * @tc.name     Test UpdateImsVoiceCapabilities with both SIM slots
+ * @tc.desc     Function test - test both slot IDs to ensure all cases covered
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallConfig_UpdateImsVoiceCapabilities_003, Function | MediumTest | Level3)
+{
+    CellularCallConfig config;
+    ImsCapabilityList imsCapabilityList1;
+    ImsCapabilityList imsCapabilityList2;
+    int32_t VONR_SWITCH_STATUS_OFF = 0;
+    int32_t VONR_SWITCH_STATUS_ON = 1;
+    config.volteSupported_[SIM1_SLOTID] = true;
+    config.volteSupported_[SIM2_SLOTID] = true;
+    config.imsGbaRequired_[SIM1_SLOTID] = false;
+    config.imsGbaRequired_[SIM2_SLOTID] = false;
+    config.vonrSwithStatus_[SIM1_SLOTID] = VONR_SWITCH_STATUS_ON;
+    config.vonrSwithStatus_[SIM2_SLOTID] = VONR_SWITCH_STATUS_OFF;
+    config.nrModeSupportedList_[SIM1_SLOTID] = {CARRIER_NR_AVAILABILITY_NSA, CARRIER_NR_AVAILABILITY_SA};
+    config.nrModeSupportedList_[SIM2_SLOTID] = {CARRIER_NR_AVAILABILITY_NSA, CARRIER_NR_AVAILABILITY_SA};
+    config.UpdateImsVoiceCapabilities(SIM1_SLOTID, imsCapabilityList1);
+    config.UpdateImsVoiceCapabilities(SIM2_SLOTID, imsCapabilityList2);
+    ASSERT_EQ(imsCapabilityList1.imsCapabilities.size(), 2);
+    ASSERT_EQ(imsCapabilityList2.imsCapabilities.size(), 1);
+}
+
+/**
+ * @tc.number   Telephony_CellularCallImsControl_SetSilentCsRedialFlag_001
+ * @tc.name     Test SetSilentCsRedialFlag with true
+ * @tc.desc     Function test - set silent cs redial flag to true, verify member isSilentCsRedial_ is true
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallImsControl_SetSilentCsRedialFlag_001, Function | MediumTest | Level3)
+{
+    IMSControl imsControl;
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+    imsControl.SetSilentCsRedialFlag(true);
+    ASSERT_TRUE(imsControl.isSilentCsRedial_);
+}
+
+/**
+ * @tc.number   Telephony_CellularCallImsControl_SetSilentCsRedialFlag_002
+ * @tc.name     Test SetSilentCsRedialFlag with false
+ * @tc.desc     Function test - set silent cs redial flag to false, verify member isSilentCsRedial_ is false
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallImsControl_SetSilentCsRedialFlag_002, Function | MediumTest | Level3)
+{
+    IMSControl imsControl;
+    imsControl.isSilentCsRedial_ = true;
+    imsControl.SetSilentCsRedialFlag(false);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+}
+
+/**
+ * @tc.number   Telephony_CellularCallImsControl_ReportHangUpInfo_004
+ * @tc.name     Test ReportHangUpInfo reports normally when both flags are false
+ * @tc.desc     Function test - verify normal report path when isIgnoredIncomingCall_ and isSilentCsRedial_ are false
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallImsControl_ReportHangUpInfo_004, Function | MediumTest | Level3)
+{
+    AccessToken token;
+    IMSControl imsControl;
+    ASSERT_FALSE(imsControl.isIgnoredIncomingCall_);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+    ASSERT_EQ(imsControl.ReportHangUpInfo(SIM1_SLOTID), TELEPHONY_SUCCESS);
+    ASSERT_FALSE(imsControl.isIgnoredIncomingCall_);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+    ASSERT_TRUE(imsControl.connectionMap_.empty());
+}
+
+/**
+ * @tc.number   Telephony_CellularCallImsControl_ReportHangUpInfo_005
+ * @tc.name     Test ReportHangUpInfo suppresses report when isSilentCsRedial_ is true
+ * @tc.desc     Function test - verify report is suppressed and isSilentCsRedial_ is reset to false
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallImsControl_ReportHangUpInfo_005, Function | MediumTest | Level3)
+{
+    AccessToken token;
+    IMSControl imsControl;
+    imsControl.isSilentCsRedial_ = true;
+    ASSERT_EQ(imsControl.ReportHangUpInfo(SIM1_SLOTID), TELEPHONY_SUCCESS);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+    ASSERT_TRUE(imsControl.connectionMap_.empty());
+}
+
+/**
+ * @tc.number   Telephony_CellularCallImsControl_ReportHangUpInfo_006
+ * @tc.name     Test ReportHangUpInfo resets both flags when both are true
+ * @tc.desc     Function test - verify both isIgnoredIncomingCall_ and isSilentCsRedial_ are reset simultaneously
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallImsControl_ReportHangUpInfo_006, Function | MediumTest | Level3)
+{
+    AccessToken token;
+    IMSControl imsControl;
+    imsControl.isIgnoredIncomingCall_ = true;
+    imsControl.isSilentCsRedial_ = true;
+    ASSERT_EQ(imsControl.ReportHangUpInfo(SIM1_SLOTID), TELEPHONY_SUCCESS);
+    ASSERT_FALSE(imsControl.isIgnoredIncomingCall_);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+}
+
+/**
+ * @tc.number   Telephony_CellularCallImsControl_ReportHangUpInfo_007
+ * @tc.name     Test silent cs redial flag is consumed once by ReportHangUpInfo
+ * @tc.desc     Function test - first call suppresses report and resets flag, second call goes normal report path
+ */
+HWTEST_F(ZeroBranchTest, Telephony_CellularCallImsControl_ReportHangUpInfo_007, Function | MediumTest | Level3)
+{
+    AccessToken token;
+    IMSControl imsControl;
+    imsControl.isSilentCsRedial_ = true;
+    ASSERT_EQ(imsControl.ReportHangUpInfo(SIM1_SLOTID), TELEPHONY_SUCCESS);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+    ASSERT_EQ(imsControl.ReportHangUpInfo(SIM1_SLOTID), TELEPHONY_SUCCESS);
+    ASSERT_FALSE(imsControl.isSilentCsRedial_);
+    ASSERT_TRUE(imsControl.connectionMap_.empty());
+}
 } // namespace Telephony
 } // namespace OHOS

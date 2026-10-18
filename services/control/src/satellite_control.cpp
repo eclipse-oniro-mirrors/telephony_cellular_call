@@ -199,23 +199,23 @@ int32_t SatelliteControl::ReportUpdateInfo(int32_t slotId, const SatelliteCurren
 {
     TELEPHONY_LOGD("ReportUpdateInfo entry");
     CallsReportInfo callsReportInfo;
-    for (int32_t i = 0; i < callInfoList.callSize; ++i) {
-        CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, callInfoList.calls[i]);
+    for (const auto &call : callInfoList.calls) {
+        CallReportInfo reportInfo = EncapsulationCallReportInfo(slotId, call);
 
         auto pConnection = FindConnectionByIndex<SatelliteConnectionMap &, CellularCallConnectionSatellite *>(
-            connectionMap_, callInfoList.calls[i].index);
+            connectionMap_, call.index);
         if (pConnection == nullptr) {
             CellularCallConnectionSatellite connection;
             connection.SetOrUpdateCallReportInfo(reportInfo);
             connection.SetFlag(true);
-            connection.SetIndex(callInfoList.calls[i].index);
-            connection.SetNumber(callInfoList.calls[i].number);
-            SetConnectionData(connectionMap_, callInfoList.calls[i].index, connection);
+            connection.SetIndex(call.index);
+            connection.SetNumber(call.number);
+            SetConnectionData(connectionMap_, call.index, connection);
         } else {
             pConnection->SetFlag(true);
-            pConnection->SetIndex(callInfoList.calls[i].index);
+            pConnection->SetIndex(call.index);
             pConnection->SetOrUpdateCallReportInfo(reportInfo);
-            pConnection->SetNumber(callInfoList.calls[i].number);
+            pConnection->SetNumber(call.number);
         }
         callsReportInfo.callVec.push_back(reportInfo);
     }
@@ -279,15 +279,15 @@ int32_t SatelliteControl::ReportIncomingInfo(int32_t slotId, const SatelliteCurr
 {
     TELEPHONY_LOGI("ReportIncomingInfo entry");
     CallsReportInfo callsReportInfo;
-    for (int32_t i = 0; i < callInfoList.callSize; ++i) {
-        CallReportInfo cellularCallReportInfo = EncapsulationCallReportInfo(slotId, callInfoList.calls[i]);
+    for (const auto &call : callInfoList.calls) {
+        CallReportInfo cellularCallReportInfo = EncapsulationCallReportInfo(slotId, call);
 
         CellularCallConnectionSatellite connection;
-        connection.SetStatus(static_cast<TelCallState>(callInfoList.calls[i].state));
-        connection.SetIndex(callInfoList.calls[i].index);
+        connection.SetStatus(static_cast<TelCallState>(call.state));
+        connection.SetIndex(call.index);
         connection.SetOrUpdateCallReportInfo(cellularCallReportInfo);
-        connection.SetNumber(callInfoList.calls[i].number);
-        SetConnectionData(connectionMap_, callInfoList.calls[i].index, connection);
+        connection.SetNumber(call.number);
+        SetConnectionData(connectionMap_, call.index, connection);
 
         callsReportInfo.callVec.push_back(cellularCallReportInfo);
     }

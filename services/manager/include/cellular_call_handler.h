@@ -19,6 +19,7 @@
 #include <memory>
 #include <mutex>
 #include <regex>
+#include "ffrt.h"
 
 #include "cellular_call_config.h"
 #include "cellular_call_data_struct.h"
@@ -269,6 +270,7 @@ private:
     void InitImsRttFuncMap();
 #endif
 
+    bool IsSilentCsRedial();
     void ReportCsCallsData(const CallInfoList &callInfoList);
     void ReportNoCsCallsData(const CallInfoList &callInfoList,  const int32_t state,
         const std::shared_ptr<CSControl> &csControl);
@@ -279,6 +281,8 @@ private:
     void ReportSatelliteCallsData(const SatelliteCurrentCallList &callInfoList);
 #endif // CELLULAR_CALL_SATELLITE
     void HandleOperatorConfigChanged(const AppExecFwk::InnerEvent::Pointer &event);
+    void HandleCallTransferQueryResult(int32_t slotId, const CallForwardQueryInfoList &cFQueryList);
+    void ReportCallTransferStatus(int32_t slotId, bool enabled);
     void UpdateRsrvccStateReport(const AppExecFwk::InnerEvent::Pointer &event);
     void ProcessRedundantCode(CallInfoList &callInfoList);
     void ProcessCsPhoneNumber(CallInfoList &list);
@@ -322,7 +326,8 @@ private:
     bool isDuringRSRVCC_ = false;
     int32_t indexCommand_ = 0;
     std::map<int32_t, std::shared_ptr<SsRequestCommand>> utCommandMap_;
-    std::mutex mutex_;
+    ffrt::mutex mutex_;
+    ffrt::mutex callListMutex_;
     ImsCurrentCallList currentCallList_{};
     CallInfoList currentCsCallInfoList_{};
 #ifdef BASE_POWER_IMPROVEMENT_FEATURE

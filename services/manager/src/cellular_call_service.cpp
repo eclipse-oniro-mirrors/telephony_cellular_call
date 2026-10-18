@@ -14,6 +14,7 @@
  */
 
 #include "cellular_call_service.h"
+#include <shared_mutex>
 
 #include "cellular_call_callback.h"
 #include "cellular_call_dump_helper.h"
@@ -1108,7 +1109,8 @@ int32_t CellularCallService::SetCallTransferInfo(int32_t slotId, const CallTrans
     if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_DISABLE) {
         DelayedSingleton<CellularCallHiSysEvent>::GetInstance()->SetCallForwardingInfo(
             slotId, false, cTInfo.transferNum);
-    } else if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_ENABLE) {
+    } else if (cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_ENABLE ||
+        cTInfo.settingType == CallTransferSettingType::CALL_TRANSFER_REGISTRATION) {
         DelayedSingleton<CellularCallHiSysEvent>::GetInstance()->SetCallForwardingInfo(
             slotId, true, cTInfo.transferNum);
     }
@@ -1748,11 +1750,13 @@ void CellularCallService::StartCallManagerService()
 
 void CellularCallService::setRadioOnFlag(bool flag, int32_t slotId)
 {
+    std::lock_guard<ffrt::shared_mutex> lock(radioMutex_);
     isRadioOn_[slotId] = flag;
 }
 
 bool CellularCallService::isRadioOnFlag(int32_t slotId)
 {
+    std::shared_lock<ffrt::shared_mutex> lock(radioMutex_);
     return isRadioOn_[slotId];
 }
 
