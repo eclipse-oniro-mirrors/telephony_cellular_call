@@ -1824,7 +1824,7 @@ void CellularCallHandler::GetCallTransferResponse(const AppExecFwk::InnerEvent::
         return;
     }
     CellularCallSupplement supplement;
-    supplement.EventGetCallTransferInfo(*cFQueryList, cFQueryList->result.message, flag
+    supplement.EventGetCallTransferInfo(*cFQueryList, cFQueryList->result.message, flag,
         isIncludeCallForwardingNumber);
     
     if (cFQueryList->result.reason == static_cast<int32_t>(CallTransferType::TRANSFER_TYPE_UNCONDITIONAL) ||
