@@ -1127,7 +1127,8 @@ int32_t CellularCallService::CanSetCallTransferTime(int32_t slotId, bool &result
     return cellularCallSupplement.CanSetCallTransferTime(slotId, result);
 }
 
-int32_t CellularCallService::GetCallTransferInfo(int32_t slotId, CallTransferType type)
+int32_t CellularCallService::GetCallTransferInfo(int32_t slotId, CallTransferType type,
+    bool isIncludeCallForwardingNumber)
 {
     TELEPHONY_LOGD("CellularCallService::GetCallTransferInfo");
     if (!IsValidSlotId(slotId)) {
@@ -1135,7 +1136,7 @@ int32_t CellularCallService::GetCallTransferInfo(int32_t slotId, CallTransferTyp
         return CALL_ERR_INVALID_SLOT_ID;
     }
     CellularCallSupplement cellularCallSupplement;
-    return cellularCallSupplement.GetCallTransferInfo(slotId, type);
+    return cellularCallSupplement.GetCallTransferInfo(slotId, type, isIncludeCallForwardingNumber);
 }
 
 std::shared_ptr<CSControl> CellularCallService::GetCsControl(int32_t slotId)

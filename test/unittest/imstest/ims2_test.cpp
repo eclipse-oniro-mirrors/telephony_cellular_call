@@ -458,12 +458,12 @@ HWTEST_F(Ims2Test, cellular_call_GetCallTransferInfo_0001, Function | MediumTest
     ASSERT_TRUE(telephonyService != nullptr);
     if (HasSimCard(SIM1_SLOTID) && CanUseImsService(SIM2_SLOTID, ImsServiceType::TYPE_UT)) {
         CallTransferType type = CallTransferType::TRANSFER_TYPE_UNCONDITIONAL;
-        int32_t ret = telephonyService->GetCallTransferInfo(SIM1_SLOTID, type);
+        int32_t ret = telephonyService->GetCallTransferInfo(SIM1_SLOTID, type, true);
         EXPECT_EQ(ret, TELEPHONY_SUCCESS);
     }
     if (HasSimCard(SIM2_SLOTID) && CanUseImsService(SIM2_SLOTID, ImsServiceType::TYPE_UT)) {
         CallTransferType type = CallTransferType::TRANSFER_TYPE_UNCONDITIONAL;
-        int32_t ret = telephonyService->GetCallTransferInfo(SIM2_SLOTID, type);
+        int32_t ret = telephonyService->GetCallTransferInfo(SIM2_SLOTID, type, true);
         EXPECT_EQ(ret, TELEPHONY_SUCCESS);
     }
 }

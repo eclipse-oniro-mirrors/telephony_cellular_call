@@ -119,9 +119,10 @@ public:
      *
      * @param slotId
      * @param CallTransferType
+     * @param isIncludeCallForwardingNumber
      * @return Returns TELEPHONY_SUCCESS on success, others on failure.
      */
-    int32_t GetCallTransferInfo(int32_t slotId, CallTransferType type);
+    int32_t GetCallTransferInfo(int32_t slotId, CallTransferType type, bool isIncludeCallForwardingNumber);
 
     /**
      * Handle Call Restriction mmi code
@@ -457,10 +458,12 @@ public:
      * @param CallForwardQueryInfoList
      * @param message the remain message for user which come from network
      * @param flag, {@code SS_FROM_MMI_CODE} mean the request action come from dial api
+     * @param isIncludeCallForwardingNumber, is include call forwarding number
      * {@code SS_FROM_SETTING_MENU} means the request action come from setting app.
      */
     void EventGetCallTransferInfo(
-        const CallForwardQueryInfoList &cFQueryList, const std::string &message, int32_t flag);
+        const CallForwardQueryInfoList &cFQueryList, const std::string &message, int32_t flag,
+            bool isIncludeCallForwardingNumber);
 
     /**
      * Set call transfer result
@@ -602,7 +605,8 @@ private:
     void GetMessage(MmiCodeInfo &mmiCodeInfo, const SsNoticeInfo &ssNoticeInfo);
 
 private:
-    void BuildCallForwardQueryInfo(const CallForwardQueryResult &queryResult, const std::string &message, int32_t flag);
+    void BuildCallForwardQueryInfo(const CallForwardQueryResult &queryResult, const std::string &message, int32_t flag,
+        bool isIncludeCallForwardingNumber);
     void ReportMmiCodeMessage(int32_t result, const std::string successMsg, const std::string failedMsg);
     bool IsVaildPinOrPuk(std::string newPinOrPuk, std::string newPinOrPukCheck);
     void ReportMmiCodeMessage(const MmiCodeInfo &mmiCodeInfo);

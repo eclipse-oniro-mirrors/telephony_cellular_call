@@ -768,7 +768,7 @@ HWTEST_F(ZeroBranch1Test, Telephony_CellularCallService_003, Function | MediumTe
     cellularCall.SetCallTransferInfo(SIM1_SLOTID, cTInfoEnable);
     bool result = false;
     cellularCall.CanSetCallTransferTime(SIM1_SLOTID, result);
-    cellularCall.GetCallTransferInfo(SIM1_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL);
+    cellularCall.GetCallTransferInfo(SIM1_SLOTID, CallTransferType::TRANSFER_TYPE_UNCONDITIONAL, true);
     cellularCall.SetCallWaiting(SIM1_SLOTID, true);
     cellularCall.GetCallWaiting(SIM1_SLOTID);
     CallRestrictionInfo crInfo;
