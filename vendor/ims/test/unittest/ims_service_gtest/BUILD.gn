@@ -29,7 +29,7 @@ ohos_unittest("tel_vendor_ims_service_gtest") {
   ]
 
   deps = [
-    "${SUBSYSTEM_DIR}:tel_cellular_call",
+    "${SUBSYSTEM_DIR}/test:cellular_call_test_base",
     "${SUBSYSTEM_DIR}/interfaces/innerkits/ims:tel_ims_call_api",
     "//third_party/googletest:gtest_main",
   ]

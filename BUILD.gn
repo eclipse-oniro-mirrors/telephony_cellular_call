@@ -21,6 +21,7 @@ ohos_shared_library("tel_cellular_call") {
     debug = false
   }
   branch_protector_ret = "pac_ret"
+  version_script = "tel_cellular_call.versionscript"
   sources = [
     "services/common/src/base_request.cpp",
     "services/common/src/cellular_call_hisysevent.cpp",
