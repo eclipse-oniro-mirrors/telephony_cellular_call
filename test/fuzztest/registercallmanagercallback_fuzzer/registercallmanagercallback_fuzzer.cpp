@@ -33,7 +33,6 @@ static bool g_isInited = false;
 constexpr int32_t SLOT_NUM = 2;
 constexpr int32_t BOOL_NUM = 2;
 constexpr int32_t CALL_STATE_NUM = 9;
-constexpr int32_t EVENT_ID_NUM = 20;
 constexpr int32_t DISCONNECTEDREASON_UNKNOWN = 1279;
 constexpr int32_t REQUEST_NUM = 6;
 

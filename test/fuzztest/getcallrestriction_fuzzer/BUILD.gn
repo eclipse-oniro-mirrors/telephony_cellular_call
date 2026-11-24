@@ -17,6 +17,7 @@ import("//build/ohos.gni")
 CELLULAR_CALL_PATH = "../../.."
 
 import("//build/test.gni")
+import("//base/telephony/cellular_call/cellularcall.gni")
 
 ##############################fuzztest##########################################
 ohos_fuzztest("GetCallRestrictionFuzzTest") {
@@ -54,7 +55,7 @@ ohos_fuzztest("GetCallRestrictionFuzzTest") {
     "data_share:datashare_common",
     "data_share:datashare_consumer",
     "eventhandler:libeventhandler",
-    "ffrt:libffrt",
+    "core_service:ffrt_mocked",
     "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
@@ -71,6 +72,7 @@ ohos_fuzztest("GetCallRestrictionFuzzTest") {
     "TELEPHONY_LOG_TAG = \"CellularCallFuzzTest\"",
     "LOG_DOMAIN = 0xD000F00",
   ]
+  defines += global_defines
 
   cflags = [
     "-g",

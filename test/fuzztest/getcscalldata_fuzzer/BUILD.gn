@@ -54,7 +54,7 @@ ohos_fuzztest("GetCsCallDataFuzzTest") {
     "data_share:datashare_common",
     "data_share:datashare_consumer",
     "eventhandler:libeventhandler",
-    "ffrt:libffrt",
+    "core_service:ffrt_mocked",
     "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
