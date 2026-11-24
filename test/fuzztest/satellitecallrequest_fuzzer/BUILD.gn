@@ -51,7 +51,7 @@ ohos_fuzztest("SatelliteCallRequestFuzzTest") {
     "core_service:libtel_common",
     "core_service:tel_core_service_api",
     "eventhandler:libeventhandler",
-    "ffrt:libffrt",
+    "core_service:ffrt_mocked",
     "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
@@ -74,16 +74,6 @@ ohos_fuzztest("SatelliteCallRequestFuzzTest") {
     "-O0",
     "-Wno-unused-variable",
     "-fno-omit-frame-pointer",
-    "-flto",
-    "-fsanitize=cfi",
-    "-fsanitize-cfi-cross-dso",
-    "-fvisibility=hidden",
-  ]
-
-  ldflags = [
-    "-flto",
-    "-fsanitize=cfi",
-    "-fsanitize-cfi-cross-dso",
   ]
 
   sources = [

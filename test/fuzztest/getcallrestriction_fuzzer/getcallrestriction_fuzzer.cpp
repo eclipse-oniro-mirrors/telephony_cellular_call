@@ -28,8 +28,6 @@ using namespace OHOS::Telephony;
 namespace OHOS {
 static bool g_isInited = false;
 constexpr int32_t SLOT_NUM = 2;
-constexpr int32_t VEDIO_STATE_NUM = 2;
-constexpr int32_t BOOL_NUM = 2;
 constexpr int32_t OFFSET_SIZE = 11;
 constexpr size_t MAX_NUMBER_LEN = 99;
 constexpr int32_t CALL_STATE_CODE = 21;

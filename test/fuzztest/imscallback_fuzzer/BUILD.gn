@@ -15,6 +15,7 @@
 import("//build/config/features.gni")
 import("//build/ohos.gni")
 import("//build/test.gni")
+import("//base/telephony/cellular_call/cellularcall.gni")
 CELLULAR_CALL_PATH = "../../.."
 
 ##############################fuzztest##########################################
@@ -51,7 +52,7 @@ ohos_fuzztest("ImsCallbackFuzzTest") {
     "core_service:tel_core_service_api",
     "data_share:datashare_common",
     "data_share:datashare_consumer",
-    "ffrt:libffrt",
+    "core_service:ffrt_mocked",
     "graphic_surface:surface",
     "hilog:libhilog",
     "init:libbegetutil",
@@ -66,6 +67,7 @@ ohos_fuzztest("ImsCallbackFuzzTest") {
     "TELEPHONY_LOG_TAG = \"ImsCallbackFuzzTest\"",
     "LOG_DOMAIN = 0xD000F00",
   ]
+  defines += global_defines
 
   cflags = [
     "-g",
